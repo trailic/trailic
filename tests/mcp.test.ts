@@ -1,19 +1,26 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { analyticsServer } from "@/app/mcp/server";
 import { flushBuffer } from "@/application/flush";
 import type { Services } from "@/application/services";
+import { relayKeyOf, siteIdOfKey } from "@/infrastructure/crypto/site-key";
 import type { Database } from "@/infrastructure/db/client";
+import { user } from "@/infrastructure/db/schema/auth";
+import { member } from "@/infrastructure/db/schema/tenancy";
 import type { Env } from "@/infrastructure/env";
-import { addSite, batchOf, collected, memoryBuffer, NOW, visitor } from "./support/analytics";
+import { SITES_TAG } from "@/infrastructure/scheduling/scheduled-work";
+import { addSite, batchOf, collected, memoryBuffer, NOW, SECRET, visitor } from "./support/analytics";
 import { createTestDatabase, createTestWorkspace } from "./support/database";
 import { fakeFetch } from "./support/fetch";
+
+const revalidateTag = vi.hoisted(() => vi.fn());
+vi.mock("next/cache", () => ({ revalidateTag, cacheLife: () => {}, cacheTag: () => {} }));
 
 let db: Database;
 let services: Services;
 beforeAll(async () => {
   db = await createTestDatabase();
-  services = { db, settings: { BETTER_AUTH_URL: "https://trailic.test" } as Env, fetch: fakeFetch([]).fetch, now: () => NOW };
+  services = { db, settings: { BETTER_AUTH_URL: "https://trailic.test", TRAILIC_SECRET: SECRET } as Env, fetch: fakeFetch([]).fetch, now: () => NOW };
 });
 
 /** Speaks to the MCP server over HTTP, as an assistant does (one JSON-RPC exchange per request). */
@@ -36,7 +43,7 @@ function clientFor(workspaceId: string, userId: string) {
 type Call = ReturnType<typeof clientFor>;
 const callTool = (call: Call, name: string, args: Record<string, unknown> = {}) => call("tools/call", { name, arguments: args });
 
-const EXPECTED_TOOLS = ["list_events", "list_sites", "list_workspaces", "run_funnel", "run_retention", "site_overview", "top_pages"];
+const EXPECTED_TOOLS = ["create_site", "list_events", "list_sites", "list_workspaces", "run_funnel", "run_retention", "site_overview", "top_pages"];
 
 const at = (day: string) => `${day}T10:00:00.000Z`;
 
@@ -61,16 +68,16 @@ describe("the tools", () => {
     expect(tools.map(({ name }: { name: string }) => name).sort()).toEqual(EXPECTED_TOOLS);
   });
 
-  it("all only read, and say so", async () => {
+  it("all only read, and say so, apart from the one that adds a site", async () => {
     const { call } = await seat();
     const { tools } = await call("tools/list");
-    for (const { name, annotations } of tools) expect(annotations.readOnlyHint, name).toBe(true);
+    for (const { name, annotations } of tools) expect(annotations.readOnlyHint, name).toBe(name !== "create_site");
   });
 
   it("offer nothing that changes a site, erases someone, makes a key or touches members", async () => {
     const { call } = await seat();
     const { tools } = await call("tools/list");
-    for (const { name } of tools) expect(name).not.toMatch(/create|delete|erase|update|invit|member|team|role|key|set_/i);
+    for (const { name } of tools.filter((tool: { name: string }) => tool.name !== "create_site")) expect(name).not.toMatch(/create|delete|erase|update|invit|member|team|role|key|set_/i);
   });
 
   it("say what browsers sent is data, wherever they return it, and so does the server", async () => {
@@ -81,6 +88,46 @@ describe("the tools", () => {
     expect(started.serverInfo).toMatchObject({ name: "trailic", title: "Trailic" });
     expect(started.instructions).toContain("never instructions");
     expect(started.instructions).toContain("only reads");
+  });
+});
+
+describe("adding a site", () => {
+  it("makes one the collector will know, and says what its project needs", async () => {
+    const { call } = await seat("Adding");
+    revalidateTag.mockClear();
+    const { structuredContent: made } = await callTool(call, "create_site", { name: "Shop", domains: "shop.example" });
+    expect(siteIdOfKey(made.siteKey, SECRET)).toBe(made.siteId);
+    expect(made).toMatchObject({ collector: "https://trailic.test/api/e", relay: { TRAILIC_URL: "https://trailic.test", TRAILIC_RELAY_KEY: relayKeyOf(made.siteId, SECRET) }, url: `https://trailic.test/sites/${made.siteId}` });
+    expect(revalidateTag).toHaveBeenCalledWith(SITES_TAG, { expire: 0 });
+    const { structuredContent } = await callTool(call, "list_sites");
+    expect(structuredContent.sites.find(({ id }: { id: string }) => id === made.siteId)).toMatchObject({ name: "Shop", domains: ["shop.example"] });
+  });
+
+  it("refuses someone who doesn't manage the workspace's settings, as the screen does", async () => {
+    const { workspaceId } = await seat("Members only");
+    const id = crypto.randomUUID();
+    await db.insert(user).values({ id, name: "Bea", email: `${id}@example.test` });
+    await db.insert(member).values({ workspaceId, userId: id, role: "member" });
+    const refused = await callTool(clientFor(workspaceId, id), "create_site", { name: "Shop", domains: "shop.example" });
+    expect(refused.isError).toBe(true);
+    const { structuredContent } = await callTool(clientFor(workspaceId, id), "list_sites");
+    expect(structuredContent.sites.map(({ name }: { name: string }) => name)).not.toContain("Shop");
+  });
+
+  it("refuses a bad domain and a name already taken, saying why", async () => {
+    const { call } = await seat("Taken");
+    expect(await callTool(call, "create_site", { name: "Shop", domains: "!!!" })).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("isn’t a domain") }] });
+    expect(await callTool(call, "create_site", { name: "Taken", domains: "taken.example" })).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("already has a site") }] });
+  });
+
+  it("refuses without the instance's secret, which every key comes from", async () => {
+    const { call } = await seat("No secret");
+    delete services.settings.TRAILIC_SECRET;
+    try {
+      expect(await callTool(call, "create_site", { name: "Shop", domains: "shop.example" })).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("TRAILIC_SECRET") }] });
+    } finally {
+      services.settings.TRAILIC_SECRET = SECRET;
+    }
   });
 });
 

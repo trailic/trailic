@@ -41,6 +41,7 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   token.userId = null;
+  settings.TRAILIC_ADMINS = "founder@example.com";
 });
 
 /** Speaks to /mcp over HTTP, as an assistant does: the real route, with only the token's signature assumed. */
@@ -191,7 +192,7 @@ describe("an assistant, for a member with one workspace", () => {
   it("sees no workspace argument anywhere, and no word about several", async () => {
     await memberOfOne();
     const { tools } = await rpc("tools/list");
-    expect(tools).toHaveLength(7);
+    expect(tools).toHaveLength(8);
     for (const { name, inputSchema } of tools) expect(inputSchema.properties ?? {}, name).not.toHaveProperty("workspace");
     expect(JSON.stringify(tools)).not.toContain("exact name");
     const started = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
@@ -221,6 +222,52 @@ describe("an assistant, for a member with one workspace", () => {
     const refused = await tool("list_sites", { workspace: "The one they left" });
     expect(refused.isError).toBe(true);
     expect(refused.content[0].text).toContain('"Solo"');
+  });
+});
+
+const toolNames = async () => ((await rpc("tools/list")).tools as { name: string }[]).map(({ name }) => name);
+
+/** Someone this instance lets start workspaces, signed in, with none yet. */
+async function admin() {
+  const id = crypto.randomUUID();
+  const email = `${id}@example.test`;
+  await db.insert(user).values({ id, name: "Ada", email });
+  settings.TRAILIC_ADMINS = email;
+  token.userId = id;
+  return id;
+}
+
+describe("starting a workspace", () => {
+  it("is all an admin with none yet is offered, and the rest arrives with it", async () => {
+    await admin();
+    expect((await toolNames()).sort()).toEqual(["create_workspace", "list_workspaces"]);
+    const { structuredContent } = await tool("create_workspace", { name: "  Shop Co  " });
+    expect(structuredContent.workspace).toMatchObject({ name: "Shop Co", role: "owner" });
+    expect(await toolNames()).toContain("create_site");
+    expect((await tool("list_workspaces")).structuredContent.workspaces).toMatchObject([{ id: structuredContent.workspace.id, name: "Shop Co", role: "owner" }]);
+  });
+
+  it("refuses a name they already have, which no call could then tell apart", async () => {
+    await admin();
+    await tool("create_workspace", { name: "Shop Co" });
+    expect(await tool("create_workspace", { name: " Shop Co " })).toMatchObject({ isError: true, content: [{ text: expect.stringContaining("already has a workspace") }] });
+    expect((await tool("list_workspaces")).structuredContent.workspaces).toHaveLength(1);
+  });
+
+  it("isn't offered to a member who isn't an admin, nor runs for them", async () => {
+    const { userId } = await createTestWorkspace(db, "Team");
+    token.userId = userId;
+    expect(await toolNames()).not.toContain("create_workspace");
+    const { body } = await send({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "create_workspace", arguments: { name: "Mine" } } });
+    expect(body.error ?? body.result?.isError).toBeTruthy();
+    expect((await tool("list_workspaces")).structuredContent.workspaces).toHaveLength(1);
+  });
+
+  it("stops being offered on the call after someone stops being an admin", async () => {
+    await admin();
+    expect(await toolNames()).toContain("create_workspace");
+    settings.TRAILIC_ADMINS = "someone-else@example.test";
+    expect((await send({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })).status).toBe(403);
   });
 });
 

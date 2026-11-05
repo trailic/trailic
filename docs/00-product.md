@@ -138,12 +138,14 @@ Every page says when data was last written. Funnels, retention, journeys and peo
 
 ## 8. Assistants and figures
 
-The MCP server is at `/mcp`, over streamable HTTP. An assistant registers itself, a member signs in and approves it, and every tool runs as that member with the same rules as the screens: each is the same use case the screens call. All of them only read.
+The MCP server is at `/mcp`, over streamable HTTP. An assistant registers itself, a member signs in and approves it, and every tool runs as that member with the same rules as the screens: each is the same use case the screens call. They only read, apart from `create_site` and `create_workspace`, which let an assistant set up a project. Changing or deleting a site, erasing someone and managing members stay on the screens.
 
 | Tool | What it does |
 |---|---|
 | `list_workspaces` | The member's workspaces. With several, every other tool names one on each call: there is no current workspace. |
+| `create_workspace` | Starts a workspace, with the member as its owner. Only offered to an instance's admins, who are the only ones to get it with no workspace yet. |
 | `list_sites` | The sites, with their ids, domains and when they were last written. |
+| `create_site` | Adds a site, for those who manage the workspace's settings, and returns its site key, the collector's address and its relay key. The relay key is secret: it goes in the project's environment. |
 | `site_overview` | One site's overview over a period, or the whole workspace's. |
 | `top_pages` | The most viewed pages. |
 | `list_events` | Custom events, each with its days. |

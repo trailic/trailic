@@ -2,14 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createSite, deleteSite, rotateSiteKey, updateSite } from "@/application/sites";
+import { createSite, deleteSite, NO_SECRET, rotateSiteKey, updateSite } from "@/application/sites";
 import type { Tried } from "@/domain/tried";
 import { currentSeat } from "@/infrastructure/auth/session";
 import { db } from "@/infrastructure/db/client";
 import { env } from "@/infrastructure/env";
 import { sitesChanged } from "@/infrastructure/scheduling/scheduled-work";
-
-const NO_SECRET = "This instance’s TRAILIC_SECRET isn’t set, so it can’t issue site keys.";
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? "");
 

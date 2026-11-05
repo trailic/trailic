@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "@/infrastructure/db/client";
+import { user } from "@/infrastructure/db/schema/auth";
 import { member, workspace } from "@/infrastructure/db/schema/tenancy";
 import { isAdmin, type Env } from "@/infrastructure/env";
 
@@ -29,6 +30,12 @@ export type MemberWorkspace = Awaited<ReturnType<typeof workspacesOf>>[number];
 
 /** Whether someone may start a workspace, their first or another: an instance's admins may; an invited member only joins. */
 export const mayStartWorkspace = (email: string, settings: Pick<Env, "TRAILIC_ADMINS">) => isAdmin(email, settings);
+
+/** Someone's address, which is what says whether they may start a workspace. */
+export async function addressOf(db: Database, userId: string): Promise<string | null> {
+  const [found] = await db.select({ email: user.email }).from(user).where(eq(user.id, userId));
+  return found?.email ?? null;
+}
 
 /** A workspace started by someone who may, or null. */
 export async function startWorkspace(db: Database, settings: Pick<Env, "TRAILIC_ADMINS">, person: { userId: string; email: string }, name: string): Promise<string | null> {

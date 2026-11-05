@@ -9,6 +9,7 @@ import { withWorkspace } from "@/infrastructure/db/tenant";
 import { roleIn } from "./team";
 
 const NAME_LENGTH = 80;
+export const NO_SECRET = "This instance’s TRAILIC_SECRET isn’t set, so it can’t issue site keys.";
 const NO_DOMAIN = "Say which domain this site runs on: its pages can’t send from anywhere else.";
 
 export type SiteRow = typeof site.$inferSelect;
