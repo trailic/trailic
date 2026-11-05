@@ -111,7 +111,7 @@ In a project using the library, on its own server: `TRAILIC_SITE_KEY` and `TRAIL
 
 ## Connecting an assistant
 
-The MCP server is at `/mcp`. Add that address to Claude, ChatGPT or any MCP client as a remote connector: the client registers itself, you sign in and approve it, and it works inside your workspaces with their rules. If you belong to several, one connection covers them all and the assistant says which one on every call.
+The MCP server is at `/api/mcp`. Add that address to Claude, ChatGPT or any MCP client as a remote connector: the client registers itself, you sign in and approve it, and it works inside your workspaces with their rules. If you belong to several, one connection covers them all and the assistant says which one on every call.
 
 ## License
 

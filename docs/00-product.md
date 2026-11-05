@@ -138,7 +138,7 @@ Every page says when data was last written. Funnels, retention, journeys and peo
 
 ## 8. Assistants and figures
 
-The MCP server is at `/mcp`, over streamable HTTP. An assistant registers itself, a member signs in and approves it, and every tool runs as that member with the same rules as the screens: each is the same use case the screens call. They only read, apart from `create_site` and `create_workspace`, which let an assistant set up a project. Changing or deleting a site, erasing someone and managing members stay on the screens.
+The MCP server is at `/api/mcp`, over streamable HTTP. An assistant registers itself, a member signs in and approves it, and every tool runs as that member with the same rules as the screens: each is the same use case the screens call. They only read, apart from `create_site` and `create_workspace`, which let an assistant set up a project. Changing or deleting a site, erasing someone and managing members stay on the screens.
 
 | Tool | What it does |
 |---|---|
