@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collect, newLimits, type CollectorPorts, type IncomingRequest } from "@/application/collect";
 import type { DirectoryEntry } from "@/application/sites";
-import { shortenedAddress } from "@/domain/anonymous";
+import { isSignInArea, shortenedAddress, SIGN_IN_AREAS } from "@/domain/anonymous";
 import type { BufferedBatch } from "@/domain/collected";
 import { mintSiteKey, relayKeyOf } from "@/infrastructure/crypto/site-key";
 import type { WireEvent } from "../packages/trailic/src/wire";
@@ -105,11 +105,46 @@ describe("anonymous mode, at the collector", () => {
     expect(events()[0]).toMatchObject({ kind: "identify", userId: "user_1", traits: { plan: "pro" } });
   });
 
+  it("counts nothing from a sign-in, account or admin area, and says nothing about it", async () => {
+    const { ports, events } = collector(ANONYMOUS);
+    const answer = await collect(ports, request([{ kind: "page", path: "/fr/login" }, { kind: "event", name: "copy", path: "/admin/users" }]));
+    expect(answer).toMatchObject({ status: 202, accepted: 0, allowOrigin: "https://www.acme.example" });
+    expect(events()).toEqual([]);
+  });
+
+  it("keeps the rest of a batch that has such a page in it", async () => {
+    const { ports, events } = collector(ANONYMOUS);
+    await collect(ports, request([{ kind: "page", path: "/dashboard" }, PAGE, { kind: "page", path: "/blog/login-attacks" }]));
+    expect(events().map(({ path }) => path)).toEqual(["/pricing", "/blog/login-attacks"]);
+  });
+
+  it("keeps what has no path, like an event from a server", async () => {
+    const { ports, events } = collector(ANONYMOUS);
+    await collect(ports, request([{ kind: "event", name: "payment" }], {}, true));
+    expect(events().map(({ name }) => name)).toEqual(["payment"]);
+  });
+
+  it("counts them when it's off", async () => {
+    const { ports, events } = collector(NAMED);
+    await collect(ports, request([{ kind: "page", path: "/login" }]));
+    expect(events().map(({ path }) => path)).toEqual(["/login"]);
+  });
+
   it("assumes it's on when nobody can say what the site asked for", async () => {
     const { ports, events } = collector(null);
     await collect(ports, request([{ kind: "page", path: "/x?utm_source=mail" }, { kind: "identify", userId: "user_1" }]));
     expect(events()).toHaveLength(1);
     expect(events()[0].utmSource).toBeNull();
+  });
+});
+
+describe("a sign-in, account or admin area", () => {
+  it.each(SIGN_IN_AREAS.flatMap((area) => [`/${area}`, `/${area}/`, `/${area}/deep/down`, `/en/${area}`, `/fr/${area}/x`, `/pt-br/${area}`, `/${area.toUpperCase()}`, `/${area}?next=/x`]))("%s isn't counted", (path) => {
+    expect(isSignInArea(path)).toBe(true);
+  });
+
+  it.each(["/", "/en", "/pricing", "/admin-tools-guide", "/login-attacks", "/accounts", "/settings-guide", "/dashboards", "/author", "/en/admin-tools-guide", "/blog/login-attacks", "/blog/admin", "/en/blog/login", "/docs/auth/setup", "/en/en/login"])("%s is an ordinary page", (path) => {
+    expect(isSignInArea(path)).toBe(false);
   });
 });
 

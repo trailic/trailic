@@ -1,4 +1,4 @@
-import { shortenedAddress } from "@/domain/anonymous";
+import { isSignInArea, shortenedAddress } from "@/domain/anonymous";
 import { anonymised, dayOf, happenedAt, LARGEST_BODY_BYTES, pathAndCampaign, referrerHost, WIRE_BATCH, wireEventsOf, type CollectedEvent, type WireEventParsed } from "@/domain/collected";
 import { RateWindow } from "@/domain/rate-window";
 import { hostAllowed, hostOf } from "@/domain/sites";
@@ -66,6 +66,9 @@ interface Client {
 }
 
 const NO_CLIENT: Client = { visitor: null, country: null, device: null, browser: null, os: null };
+
+/** What anonymous mode leaves of a batch: no identify, nothing from a sign-in, account or admin area, and nothing that follows someone. */
+const leftByAnonymousMode = (events: CollectedEvent[]) => events.filter(({ kind, path }) => kind !== "identify" && !(path && isSignInArea(path))).map(anonymised);
 
 function shapedEvent(event: WireEventParsed, client: Client, receivedAt: Date, originHost: string | null): CollectedEvent {
   return {
@@ -140,11 +143,9 @@ export async function collect(ports: CollectorPorts, request: IncomingRequest): 
   const originHost = hostOf(request.origin);
   const understood = wireEventsOf(wire.events).filter(({ kind }) => !server || kind === "event");
   if (understood.length === 0) return refusal(400, { allowOrigin });
-  const events = understood.filter(({ kind }) => !anonymous || kind !== "identify").map((event) => {
-    const shaped = shapedEvent(event, client, receivedAt, originHost);
-    return anonymous ? anonymised(shaped) : shaped;
-  });
-  // An identify refused is answered like a bot: nothing here tells a page it was dropped, and nothing shows in its console.
+  const shaped = understood.map((event) => shapedEvent(event, client, receivedAt, originHost));
+  const events = anonymous ? leftByAnonymousMode(shaped) : shaped;
+  // What anonymous mode drops is answered like a bot: nothing here tells a page it was dropped, and nothing shows in its console.
   if (events.length === 0) return { status: 202, allowOrigin, accepted: 0 };
   try {
     await ports.buffer.append({ id: crypto.randomUUID(), siteId, key: wire.key, originHost, verified: Boolean(entry), events });
