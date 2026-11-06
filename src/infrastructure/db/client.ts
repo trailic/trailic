@@ -2,6 +2,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { env } from "../env";
+import { keepParametersOutOfQueryErrors } from "./query-errors";
 import * as analytics from "./schema/analytics";
 import * as auth from "./schema/auth";
 import * as keys from "./schema/keys";
@@ -13,6 +14,8 @@ export const schema = { ...auth, ...tenancy, ...keys, ...analytics };
 export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export const DRIZZLE_CASING = "snake_case";
+
+keepParametersOutOfQueryErrors();
 
 export function connect(url: string): Database {
   // prepare: false keeps it compatible with transaction-mode poolers (Neon, PgBouncer).
