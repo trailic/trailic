@@ -54,7 +54,7 @@ async function Keys() {
 export default function KeysPage() {
   return (
     <Shell>
-      <PageHeading title="API keys">For your dashboards to read figures. Each key does only what it was given.</PageHeading>
+      <PageHeading title="API keys">For your dashboards to read figures. Each key does only what it was given, and stops working when whoever made it leaves the workspace.</PageHeading>
       <SettingsNav />
       <Suspense fallback={<Loading />}>
         <Keys />

@@ -3,7 +3,9 @@ import { refusalToChangeRole, refusalToRemove, type Role } from "@/domain/team";
 import type { Tried } from "@/domain/tried";
 import { user } from "@/infrastructure/db/schema/auth";
 import type { Database } from "@/infrastructure/db/client";
+import { apiKey } from "@/infrastructure/db/schema/keys";
 import { member } from "@/infrastructure/db/schema/tenancy";
+import { withWorkspace } from "@/infrastructure/db/tenant";
 
 /** A workspace's members, the first to join first. Memberships are written and read on the trusted path: the app role can't write them. */
 export async function teamOf(db: Database, workspaceId: string) {
@@ -27,14 +29,22 @@ export async function roleIn(db: Database, workspaceId: string, userId: string):
 /** The team, locked until the change is made: two owners demoting each other at once must not leave a workspace with none. */
 const lockedTeam = (tx: Database, workspaceId: string) => tx.select({ userId: member.userId, role: member.role }).from(member).where(eq(member.workspaceId, workspaceId)).orderBy(member.createdAt).for("update");
 
-/** Takes someone out of a workspace, themselves included when they leave. Their access ends at once: every path re-reads membership. */
+/** The keys someone made stop with them: a key is shown once, so it may well have left with them. Says how many. Last in its transaction, since it stays in the app role. */
+async function endKeysMadeBy(tx: Database, workspaceId: string, userId: string): Promise<number> {
+  const ended = await withWorkspace(tx, workspaceId, (own) => own.delete(apiKey).where(eq(apiKey.createdBy, userId)).returning({ id: apiKey.id }));
+  return ended.length;
+}
+
+/** Takes someone out of a workspace, themselves included when they leave. Their access ends at once: every path re-reads membership, and the keys they made go in the same transaction. */
 export async function removeMember(db: Database, workspaceId: string, actorId: string, targetId: string): Promise<Tried> {
   return db.transaction(async (tx) => {
     const team = await lockedTeam(tx, workspaceId);
     const refused = refusalToRemove(team, actorId, targetId);
     if (refused) return { ok: false, error: refused };
     await tx.delete(member).where(and(eq(member.workspaceId, workspaceId), eq(member.userId, targetId)));
-    return { ok: true, said: actorId === targetId ? "You left this workspace." : "This person no longer has access to this workspace." };
+    const keysEnded = await endKeysMadeBy(tx, workspaceId, targetId);
+    const left = actorId === targetId ? "You left this workspace." : "This person no longer has access to this workspace.";
+    return { ok: true, said: keysEnded > 0 ? `${left} ${actorId === targetId ? "The API keys you made" : "The API keys they made"} have stopped working.` : left };
   });
 }
 
