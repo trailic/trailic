@@ -17,6 +17,7 @@ export interface StartOptions {
 type Queued = WireEvent & { at: number };
 
 const USER_STORAGE_KEY = "trailic.user";
+const OPT_OUT_STORAGE_KEY = "trailic.optOut";
 const FLUSH_AFTER_MS = 5_000;
 const FLUSH_AT_EVENTS = 10;
 /** What's held while nothing can leave: a page that never gets consent can't grow without end. */
@@ -26,6 +27,8 @@ let options: StartOptions | undefined;
 let queue: Queued[] = [];
 let timer: ReturnType<typeof setTimeout> | undefined;
 let consent = true;
+/** For a browser that keeps nothing: the choice then lasts as long as the page. */
+let optedOut = false;
 let userId: string | undefined;
 let lastPath: string | undefined;
 let referrerSent = false;
@@ -53,7 +56,10 @@ function saysNotToTrack(): boolean {
   return browser.doNotTrack === "1" || browser.globalPrivacyControl === true;
 }
 
-const mayQueue = () => !options?.respectPrivacySignals || !saysNotToTrack();
+/** Whether this visitor said not to count them. Read each time, so that a choice made in another tab counts here too. */
+export const isOptedOut = (): boolean => optedOut || storage()?.getItem(OPT_OUT_STORAGE_KEY) === "1";
+
+const mayQueue = () => !isOptedOut() && (!options?.respectPrivacySignals || !saysNotToTrack());
 
 /** Sends what's waiting. On page hide only a beacon can be trusted to leave; both go as plain text, so no preflight. */
 function flush(onPageHide = false): void {
@@ -165,6 +171,20 @@ export function setConsent(granted: boolean): void {
   });
 }
 
+/** The visitor objects: nothing more leaves, what's waiting goes, and the browser remembers it. Nothing is kept until they choose. */
+export function optOut(): void {
+  optedOut = true;
+  queue = [];
+  reset();
+  quietly(() => storage()?.setItem(OPT_OUT_STORAGE_KEY, "1"));
+}
+
+/** They changed their mind, which also takes away what the browser kept of their objection. */
+export function optIn(): void {
+  optedOut = false;
+  quietly(() => storage()?.removeItem(OPT_OUT_STORAGE_KEY));
+}
+
 /** A web vital, for trailic/vitals. */
 export function recordVital(name: string, value: number): void {
   enqueue("vital", { name, value });
@@ -177,6 +197,7 @@ export function forgetEverything(): void {
   queue = [];
   timer = undefined;
   consent = true;
+  optedOut = false;
   userId = undefined;
   lastPath = undefined;
   referrerSent = false;

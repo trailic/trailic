@@ -4,8 +4,10 @@ Page views and events from a Next.js site to your own Trailic instance. No cooki
 
 ## Setup
 
+Until it's on npm, install it from its release:
+
 ```bash
-npm install trailic
+npm install https://github.com/trailic/trailic/releases/download/v0.1.1/trailic-0.1.1.tgz
 ```
 
 ```tsx
@@ -81,6 +83,14 @@ What's kept in the browser: nothing, until `identify`, which keeps the id you ga
 Anonymous visitors are counted server-side by a hash of their address and browser, salted per day and per site. The address isn't stored. The same person is someone else tomorrow, and on another of your sites. So only people you identify can be followed from one day to the next.
 
 **Consent.** `consent={false}` holds everything in memory until it turns true, and nothing is sent or stored before that. `setConsent()` does the same from anywhere. Withdrawing it removes what `identify` kept.
+
+**Objecting.** `optOut()` stops everything for this visitor and remembers it in `localStorage`, under `trailic.optOut`, only once they've chosen. `optIn()` takes that back, and `isOptedOut()` says which it is. `<Trailic>` honours the choice on every page. For a privacy page there's a button that does it all, in a separate import so that other pages don't carry it:
+
+```tsx
+import { TrailicOptOut } from "trailic/opt-out";
+
+<TrailicOptOut stop="Stop measuring my visits" resume="Measure my visits again" />
+```
 
 **Do Not Track and Global Privacy Control.** `respectPrivacySignals` sends nothing for a browser that says either. It's off by default, because what's counted here doesn't follow anyone across sites, but that's your decision to make.
 

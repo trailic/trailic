@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { forgetEverything, identify, recordVital, reset, setConsent, start, track } from "../src/core.js";
+import { forgetEverything, identify, isOptedOut, optIn, optOut, recordVital, reset, setConsent, start, track } from "../src/core.js";
 import type { WireBatch } from "../src/wire.js";
 
 const ENDPOINT = "https://collect.acme.example/api/e";
@@ -374,5 +374,70 @@ describe("Do Not Track and Global Privacy Control", () => {
     start(withSignals);
     vi.advanceTimersByTime(5_000);
     expect(fetchMock).toHaveBeenCalled();
+  });
+});
+
+describe("objecting", () => {
+  it("keeps nothing in the browser until the visitor chooses", () => {
+    start(options);
+    track("a");
+    expect(isOptedOut()).toBe(false);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("sends nothing more, and drops what was waiting", () => {
+    start(options);
+    track("a");
+    optOut();
+    track("b");
+    at("/next");
+    vi.advanceTimersByTime(60_000);
+    hide();
+    expect(events()).toEqual([]);
+  });
+
+  it("lasts past this page: a new one sends nothing either", () => {
+    start(options);
+    optOut();
+    expect(localStorage.getItem("trailic.optOut")).toBe("1");
+    forgetEverything();
+    start(options);
+    track("a");
+    vi.advanceTimersByTime(60_000);
+    expect(isOptedOut()).toBe(true);
+    expect(events()).toEqual([]);
+  });
+
+  it("forgets who they were, and keeps nothing from identify afterwards", () => {
+    start(options);
+    identify("user_1");
+    optOut();
+    expect(localStorage.getItem("trailic.user")).toBeNull();
+    identify("user_2");
+    expect(localStorage.getItem("trailic.user")).toBeNull();
+  });
+
+  it("can be taken back, which removes what the browser kept", () => {
+    start(options);
+    optOut();
+    optIn();
+    expect(isOptedOut()).toBe(false);
+    expect(localStorage.length).toBe(0);
+    track("a");
+    vi.advanceTimersByTime(60_000);
+    expect(events().map(({ name }) => name)).toEqual(["a"]);
+  });
+
+  it("still holds for the page in a browser that keeps nothing", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("Refused");
+    });
+    start(options);
+    optOut();
+    track("a");
+    vi.advanceTimersByTime(60_000);
+    expect(isOptedOut()).toBe(true);
+    expect(events()).toEqual([]);
+    vi.restoreAllMocks();
   });
 });

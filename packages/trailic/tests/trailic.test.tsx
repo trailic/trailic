@@ -3,7 +3,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { forgetEverything } from "../src/core.js";
-import { identify, reset, setConsent, track, Trailic } from "../src/index.js";
+import { identify, optOut, reset, setConsent, track, Trailic } from "../src/index.js";
+import { TrailicOptOut } from "../src/opt-out.js";
 import { TrailicVitals } from "../src/vitals.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -146,5 +147,44 @@ describe("<Trailic> and setConsent", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     setConsent(true);
     expect(sent().map(({ kind }) => kind)).toEqual(["page"]);
+  });
+});
+
+describe("<TrailicOptOut>", () => {
+  const button = (container: HTMLElement) => container.querySelector("button") as HTMLButtonElement;
+  const out = <TrailicOptOut stop="Stop" resume="Resume" />;
+
+  it("offers to stop on the server, which can't know", () => {
+    expect(renderToString(out)).toContain("Stop");
+  });
+
+  it("stops the counting when pressed, and offers to take it back", async () => {
+    const container = await render(<><Trailic siteKey="k" endpoint="/e" />{out}</>);
+    await act(async () => button(container).click());
+    expect(button(container).textContent).toBe("Resume");
+    expect(localStorage.getItem("trailic.optOut")).toBe("1");
+    await act(async () => button(container).click());
+    expect(button(container).textContent).toBe("Stop");
+    expect(localStorage.getItem("trailic.optOut")).toBeNull();
+  });
+
+  it("says what's true once it has run, for someone who objected earlier", async () => {
+    optOut();
+    expect(button(await render(out)).textContent).toBe("Resume");
+  });
+
+  it("reads as a link unless it's given its own class", async () => {
+    expect(button(await render(out)).style.textDecoration).toBe("underline");
+    await act(async () => root?.unmount());
+    const styled = button(await render(<TrailicOptOut stop="Stop" resume="Resume" className="mine" />));
+    expect(styled.className).toBe("mine");
+    expect(styled.getAttribute("style")).toBeNull();
+  });
+
+  it("means <Trailic> counts nothing", async () => {
+    optOut();
+    await render(<Trailic siteKey="k" endpoint="/e" />);
+    vi.advanceTimersByTime(60_000);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "trailic",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "What people do on your Next.js site: page views and events, with no cookies before identify.",
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -11,6 +11,7 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./vitals": { "types": "./dist/vitals.d.ts", "default": "./dist/vitals.js" },
+    "./opt-out": { "types": "./dist/opt-out.d.ts", "default": "./dist/opt-out.js" },
     "./server": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
     "./next": { "types": "./dist/next.d.ts", "default": "./dist/next.js" }
   },

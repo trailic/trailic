@@ -10,3 +10,4 @@ const measure = async (entry) => {
 
 console.log("trailic", await measure("src/index.ts"));
 console.log("trailic/vitals", await measure("src/vitals.tsx"));
+console.log("trailic/opt-out", await measure("src/opt-out.tsx"));
