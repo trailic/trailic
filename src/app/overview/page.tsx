@@ -4,7 +4,7 @@ import { overviewOf, type Overview, type VitalFigure } from "@/application/overv
 import { sitesOf } from "@/application/sites";
 import { periodEndingAt } from "@/application/time-range";
 import { DayColumns, formatted, percent, TopList } from "@/components/charts";
-import { chosenSite, daysIn, LastWritten, NoSitesYet, SiteAndPeriod, type Query } from "@/components/reading";
+import { chosenSite, daysIn, ImportedNote, LastWritten, NoSitesYet, SiteAndPeriod, type Query } from "@/components/reading";
 import { Loading, PageHeading, Shell } from "@/components/shell";
 import { Card } from "@/components/ui";
 import { currentSeat } from "@/infrastructure/auth/session";
@@ -64,8 +64,9 @@ function Figures({ overview }: { overview: Overview }) {
       <Totals totals={overview.totals} />
       <Card className="mt-4">
         <h2 className="mb-3 text-sm font-semibold">Page views</h2>
-        <DayColumns days={overview.days.map(({ date, pageViews }) => ({ date, value: pageViews }))} measure="Page views" />
+        <DayColumns days={overview.days.map(({ date, pageViews, imported }) => ({ date, value: pageViews, imported }))} measure="Page views" />
       </Card>
+      <ImportedNote history={overview.imported} />
       <Card className="mt-4">
         <div className="grid gap-8 md:grid-cols-2">
           <TopList title="Pages" rows={overview.pages} />

@@ -2,6 +2,7 @@ import Form from "next/form";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { boundedDays } from "@/application/time-range";
+import type { ImportedHistory } from "@/application/history";
 import type { SiteRow } from "@/application/sites";
 import { when } from "./when";
 import { EmptyState, INLINE_FIELD, QuietButton } from "./ui";
@@ -63,5 +64,22 @@ export function NoSitesYet() {
       </Link>{" "}
       and put its snippet in your layout.
     </EmptyState>
+  );
+}
+
+const dayWithYear = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** Says which figures another tool counted, beside them, so they're never read as this one's. */
+export function ImportedNote({ history }: { history: readonly ImportedHistory[] }) {
+  if (history.length === 0) return null;
+  return (
+    <div data-imported-note className="mt-4 space-y-1 rounded-xl border border-dashed px-5 py-3 text-sm text-muted-foreground">
+      {history.map(({ source, counts, note, firstDay, lastDay, sites }) => (
+        <p key={source}>
+          <span className="font-medium text-foreground">Imported from {source}</span>, {dayWithYear(firstDay)} to {dayWithYear(lastDay)}{sites > 1 ? `, on ${sites} sites` : ""}: {counts}. {note}
+        </p>
+      ))}
+      <p>That tool counted these days by its own rules, and they’re drawn paler. Funnels, retention, journeys and people don’t reach them.</p>
+    </div>
   );
 }

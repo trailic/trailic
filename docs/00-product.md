@@ -114,6 +114,20 @@ Postgres, with no extension. Raw events are in `event`, partitioned by month, ma
 
 **Row-level security.** Every table that belongs to a workspace has it, and a test reads the database to fail on any that hasn't, partitions included. Flushes and screens run as the restricted role, bound to one workspace.
 
+**Importing history.** A site that moves here from another tool can bring its daily figures, so its charts don't start from nothing. It's for whoever runs the instance, not for a key: `pnpm import-history history.ndjson --source "Another tool" --counts "every page view it recorded" [--note "…"] [--dry-run]`, with the file holding one JSON object per line and a site's lines together.
+
+```json
+{ "site": "…", "day": "2026-09-30", "visitors": 2, "pageViews": 3, "events": 1, "bounces": 1, "dimensions": { "page": [{ "value": "/pricing", "count": 2, "visitors": 1 }], "referrer": [{ "value": "(direct)", "count": 3, "visitors": 2 }], "event": [{ "value": "signup", "count": 1, "visitors": 1 }] } }
+```
+
+Dimensions are those of the rollups, each optional. A visitor is what it is here: who saw a page that day. A site's figures go in one transaction, as the restricted role.
+
+- **What's kept.** The counts are taken as given, and the values get the collector's rules: paths are cleaned, a site in anonymous mode keeps no UTM tags and doesn't count personal areas, which come off the day's page views too. No raw row is written, and nobody in it can be followed.
+- **A day has one source.** An import writes only whole days before the first one the site collected, so it can't overlap what's here, and a late event on an imported day stays in the raw rows and leaves that day's figures alone. The day a site starts collecting is its own, so it's usually a short one.
+- **Doing it again.** A source's import for a site is one thing: the same figures write nothing, and other figures replace only what that source wrote.
+- **What a member sees.** Imported days are paler on the chart and marked in its table, and a note beside the figures says where they came from, what they count, and the note given. `/api/v1/figures` and its breakdown say `imported: true` on such a day, and the tools that read figures carry the same. An app reading figures with a key gets those days in the same series, so its charts reach further back: it reads them as ordinary figures unless it checks `imported`, which it should if the difference matters to it. A site's page lists its imports, and an owner or an admin can remove one.
+- **What they can't do.** Funnels, retention, journeys and people read raw rows, so they don't reach imported days. The rollups stay for good, like any others.
+
 **What it costs.** Measured with `pnpm load-test` on Postgres 17 limited to one CPU and 4 GB: 5 million synthetic events over 120 days on 30 sites, the biggest with a quarter of the traffic, so about 950,000 events in its last 90 days.
 
 | | One CPU | A quarter of a CPU |
@@ -133,8 +147,8 @@ Journeys follow each visitor who reached the page, about 300,000 in that last ca
 
 ## 7. Screens
 
-- **Sites** (`/sites`). Each with its key, setup snippet, relay key, domains and retention. Replacing a key ends the old one. Owners and admins change these.
-- **Overview** (`/overview`). Per site or across a workspace: visitors, page views, events, bounce rate, a chart per day, top pages, referrers, UTM tags, countries, devices, browsers, systems, and web vitals if sent.
+- **Sites** (`/sites`). Each with its key, setup snippet, relay key, domains, retention and imported history. Replacing a key ends the old one. Owners and admins change these.
+- **Overview** (`/overview`). Per site or across a workspace: visitors, page views, events, bounce rate, a chart per day, top pages, referrers, UTM tags, countries, devices, browsers, systems, and web vitals if sent. Imported days are marked.
 - **Custom events** (`/events`). Each with its count, visitors and days.
 - **Funnels** (`/funnels`). A funnel is two to eight steps, each a page (a trailing `*` matches anything under it) or an event, and how long people have from the first step. It shows how many reached each step, in order, and how many stopped there.
 - **Retention** (`/retention`). Cohorts by the Monday of the week someone was first identified, and what share came back each week after, by any activity or by a chosen event.
@@ -180,7 +194,7 @@ Paths and names come from visitors' browsers, so the tools that return them say 
       "id": "…",
       "name": "Acme shop",
       "lastWrittenAt": "2026-11-05T09:00:03.000Z",
-      "days": [{ "date": "2026-11-05", "visitors": 3, "pageViews": 6, "events": 3, "bounces": 1 }]
+      "days": [{ "date": "2026-11-05", "visitors": 3, "pageViews": 6, "events": 3, "bounces": 1, "imported": false }]
     }
   ]
 }
@@ -196,7 +210,7 @@ Paths and names come from visitors' browsers, so the tools that return them say 
   "from": "2026-11-04",
   "to": "2026-11-05",
   "timezone": "UTC",
-  "days": [{ "date": "2026-11-05", "count": 2, "visitors": 1 }]
+  "days": [{ "date": "2026-11-05", "count": 2, "visitors": 1, "imported": false }]
 }
 ```
 

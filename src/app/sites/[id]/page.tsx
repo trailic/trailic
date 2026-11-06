@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { historyImportsOf, type HistoryImportRow } from "@/application/history";
 import { siteIn, type SiteRow } from "@/application/sites";
+import { formatted } from "@/components/charts";
 import { Loading, PageHeading, Shell } from "@/components/shell";
 import { ActionForm, ConfirmButton, CopyButton } from "@/components/try-button";
 import { Card, Code, CodeBlock, FIELD, Labelled } from "@/components/ui";
@@ -15,7 +17,7 @@ import { currentSeat } from "@/infrastructure/auth/session";
 import { relayKeyOf } from "@/infrastructure/crypto/site-key";
 import { db } from "@/infrastructure/db/client";
 import { collectorEndpoint, collectorOrigin, env } from "@/infrastructure/env";
-import { deleteSiteAction, rotateKeyAction, setAnonymousAction, updateSiteAction } from "../actions";
+import { deleteSiteAction, removeHistoryAction, rotateKeyAction, setAnonymousAction, updateSiteAction } from "../actions";
 
 export const metadata: Metadata = { title: "Site" };
 
@@ -98,6 +100,34 @@ function AnonymousMode({ site, mayChange }: { site: SiteRow; mayChange: boolean 
   );
 }
 
+function ImportedHistorySection({ siteId, imports, mayChange }: { siteId: string; imports: HistoryImportRow[]; mayChange: boolean }) {
+  if (imports.length === 0) return null;
+  return (
+    <Card>
+      <h2 className="font-semibold">Imported history</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Daily figures another tool counted before this one started here. They show on the overview, marked, and nothing else reads them.</p>
+      <ul className="mt-3 space-y-3 text-sm">
+        {imports.map((one) => (
+          <li key={one.id} data-import={one.source}>
+            <p className="font-medium">{one.source}</p>
+            <p className="text-muted-foreground">
+              {one.firstDay} to {one.lastDay}, {formatted(one.days)} days, {formatted(one.pageViews)} page views, {formatted(one.events)} events. Imported {when(one.importedAt)}.
+            </p>
+            <p className="text-muted-foreground">
+              {one.counts}. {one.note}
+            </p>
+            {mayChange && (
+              <div className="mt-2">
+                <ConfirmButton action={removeHistoryAction.bind(null, siteId, one.id)} label="Remove these figures" confirm="Yes: remove them from this site" />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 function Settings({ site }: { site: SiteRow }) {
   return (
     <Card>
@@ -129,6 +159,7 @@ async function Content({ params }: { params: PageProps<"/sites/[id]">["params"] 
   const site = await siteIn(db(), seat.workspaceId, id);
   if (!site) notFound();
   const mayChange = managesSettings(seat.role);
+  const imports = await historyImportsOf(db(), seat.workspaceId, site.id);
   return (
     <>
       <PageHeading title={site.name}>{site.lastWrittenAt ? `Data last written ${when(site.lastWrittenAt)}.` : "Nothing written yet."}</PageHeading>
@@ -140,6 +171,7 @@ async function Content({ params }: { params: PageProps<"/sites/[id]">["params"] 
       <div className="max-w-3xl space-y-4">
         <Setup site={site} mayChange={mayChange} />
         <AnonymousMode site={site} mayChange={mayChange} />
+        <ImportedHistorySection siteId={site.id} imports={imports} mayChange={mayChange} />
         {mayChange && <Settings site={site} />}
       </div>
     </>

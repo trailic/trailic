@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/infrastructure/db/client";
+import { rowsOf } from "@/infrastructure/db/rows";
 
 export interface SiteDay {
   siteId: string;
@@ -61,7 +62,19 @@ const vitals = (rows: SQL) => sql`
   from (${rows}) e
   where e.kind = 'vital' group by e.site_id, e.day, e.name`;
 
-async function rebuildDay(tx: Database, siteIds: readonly string[], day: string): Promise<void> {
+/**
+ * A day an import wrote stays as imported: its figures can't be counted again from raw rows, and one
+ * late event mustn't replace a whole day with itself. That event stays in the raw rows.
+ */
+async function withoutImportedDays(tx: Database, siteIds: readonly string[], day: string): Promise<string[]> {
+  const imported = await rowsOf<{ site_id: string }>(tx, sql`select site_id from daily_site where site_id in (${siteList(siteIds)}) and day = ${day}::date and import_id is not null`);
+  const held = new Set(imported.map(({ site_id }) => site_id));
+  return siteIds.filter((id) => !held.has(id));
+}
+
+async function rebuildDay(tx: Database, allSiteIds: readonly string[], day: string): Promise<void> {
+  const siteIds = await withoutImportedDays(tx, allSiteIds, day);
+  if (siteIds.length === 0) return;
   const rows = dayRows(siteIds, day);
   for (const table of ["daily_site", "daily_dimension", "daily_vital"]) {
     await tx.execute(sql`delete from ${sql.identifier(table)} where site_id in (${siteList(siteIds)}) and day = ${day}::date`);

@@ -2,6 +2,7 @@ import { and, desc, eq, gte, lte, max, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/infrastructure/db/client";
 import { dailyDimension, dailySite, dailyVital, site, type Dimension } from "@/infrastructure/db/schema/analytics";
 import { withWorkspace } from "@/infrastructure/db/tenant";
+import { importedHistoryIn, type ImportedHistory } from "./history";
 import type { Period } from "./time-range";
 
 export interface DayTotals {
@@ -10,7 +11,11 @@ export interface DayTotals {
   pageViews: number;
   events: number;
   bounces: number;
+  /** Another tool counted this day, on at least one of the sites being read. */
+  imported: boolean;
 }
+
+type DayCount = "visitors" | "pageViews" | "events" | "bounces";
 
 export interface TopValue {
   value: string;
@@ -32,7 +37,7 @@ export interface Overview {
   timezone: "UTC";
   /** When events last reached the database: everything here is at most that fresh. */
   lastWrittenAt: Date | null;
-  totals: Omit<DayTotals, "date">;
+  totals: Pick<DayTotals, DayCount>;
   days: DayTotals[];
   pages: TopValue[];
   referrers: TopValue[];
@@ -42,6 +47,8 @@ export interface Overview {
   browsers: TopValue[];
   systems: TopValue[];
   vitals: VitalFigure[];
+  /** Which of these figures another tool counted, and what they count. */
+  imported: ImportedHistory[];
 }
 
 /** Which rollups a screen reads: one site, or all of a workspace's, whichever row-level security leaves. */
@@ -52,14 +59,14 @@ const inPeriod = (column: typeof dailySite.day | typeof dailyDimension.day | typ
 /** A day's totals laid out on every day of the period, so a quiet day shows as a zero rather than as nothing. */
 function everyDay(rows: DayTotals[], days: readonly string[]): DayTotals[] {
   const known = new Map(rows.map((row) => [row.date, row]));
-  return days.map((date) => known.get(date) ?? { date, visitors: 0, pageViews: 0, events: 0, bounces: 0 });
+  return days.map((date) => known.get(date) ?? { date, visitors: 0, pageViews: 0, events: 0, bounces: 0, imported: false });
 }
 
-const sum = (rows: DayTotals[], field: keyof Omit<DayTotals, "date">) => rows.reduce((total, row) => total + row[field], 0);
+const sum = (rows: DayTotals[], field: DayCount) => rows.reduce((total, row) => total + row[field], 0);
 
 async function dayTotals(tx: Database, siteId: string | null, period: Period): Promise<DayTotals[]> {
   const rows = await tx
-    .select({ date: dailySite.day, visitors: sql<number>`sum(${dailySite.visitors})::int`, pageViews: sql<number>`sum(${dailySite.pageViews})::int`, events: sql<number>`sum(${dailySite.events})::int`, bounces: sql<number>`sum(${dailySite.bounces})::int` })
+    .select({ date: dailySite.day, visitors: sql<number>`sum(${dailySite.visitors})::int`, pageViews: sql<number>`sum(${dailySite.pageViews})::int`, events: sql<number>`sum(${dailySite.events})::int`, bounces: sql<number>`sum(${dailySite.bounces})::int`, imported: sql<boolean>`bool_or(${dailySite.importId} is not null)` })
     .from(dailySite)
     .where(and(onSite(siteId, dailySite.siteId), inPeriod(dailySite.day, period)))
     .groupBy(dailySite.day);
@@ -125,6 +132,7 @@ export async function overviewOf(db: Database, workspaceId: string, siteId: stri
       browsers: await top("browser"),
       systems: await top("os"),
       vitals: await vitalsOf(tx, siteId, period),
+      imported: await importedHistoryIn(tx, siteId, period),
     };
   });
 }

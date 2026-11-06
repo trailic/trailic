@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+import { importHistory } from "@/application/history";
 import { createApiKey } from "@/application/api-keys";
 import { createFunnel } from "@/application/funnels";
 import { flushBuffer } from "@/application/flush";
@@ -46,6 +47,7 @@ async function stock(workspaceId: string, userId: string) {
   await buffer.append(batchOf(site, MONTHS.flatMap((at) => [collected({ at, userId: "user_1" }), collected({ at, kind: "event", name: "signup" }), collected({ at, kind: "vital", name: "LCP", value: 1 }), collected({ at, kind: "identify", userId: "user_2", visitor: visitor(9) })])));
   await flushBuffer({ db, buffer, now: () => NOW });
   await erasePerson(db, workspaceId, userId, site.id, "user_2", NOW);
+  await importHistory(db, workspaceId, { siteId: site.id, source: "Another tool", counts: "all page views it recorded", days: [{ day: "2026-01-15", visitors: 1, pageViews: 1, events: 0, bounces: 1, dimensions: {} }] }, NOW);
 }
 
 beforeAll(async () => {
@@ -60,7 +62,7 @@ beforeAll(async () => {
 
 describe("every table that belongs to a workspace", () => {
   it("is found: this file can't pass by looking at nothing", () => {
-    expect(tables).toEqual(expect.arrayContaining(["api_key", "daily_dimension", "daily_site", "daily_vital", "erased_person", "event", "event_2026_10", "event_2026_11", "flushed_batch", "funnel", "invitation", "person", "site"]));
+    expect(tables).toEqual(expect.arrayContaining(["api_key", "daily_dimension", "daily_site", "daily_vital", "erased_person", "event", "event_2026_10", "event_2026_11", "flushed_batch", "funnel", "history_import", "invitation", "person", "site"]));
   });
 
   it("has row-level security on, and the tenant policy", async () => {

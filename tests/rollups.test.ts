@@ -198,7 +198,7 @@ describe("figures for a dashboard", () => {
     const figures = await figuresOf(db, workspaceId, PERIOD);
     expect(figures).toMatchObject({ from: "2026-10-30", to: "2026-11-05", timezone: "UTC" });
     expect(figures.sites).toHaveLength(1);
-    expect(figures.sites[0].days.find(({ date }) => date === DAY)).toEqual({ date: DAY, visitors: 3, pageViews: 4, events: 2, bounces: 2 });
+    expect(figures.sites[0].days.find(({ date }) => date === DAY)).toEqual({ date: DAY, visitors: 3, pageViews: 4, events: 2, bounces: 2, imported: false });
     expect(JSON.stringify(figures)).not.toContain("user_1");
     expect(JSON.stringify(figures)).not.toContain("/pricing");
   });

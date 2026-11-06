@@ -14,6 +14,7 @@ What people do on your Next.js sites: page views, custom events, funnels, retent
 - **Screens**: sites and keys with the setup snippet, an overview per site and across a workspace, custom events, funnels, retention cohorts, journeys, and identified people with deletion of one person's data.
 - **Assistants**: an MCP server with `list_workspaces`, `list_sites`, `site_overview`, `top_pages`, `run_funnel`, `run_retention` and `list_events`, which only read, plus `create_site` and, for an instance's admins, `create_workspace`, so an assistant can set up a project. Owners and admins can also have it manage read keys with `list_api_keys`, `create_api_key` and `revoke_api_key`.
 - **Figures**: `GET /api/v1/figures` per site and per day.
+- **Importing history**: `pnpm import-history` brings a site's daily figures from another tool, marked as imported wherever they show, and safe to run again.
 - **Several companies**: workspaces kept apart by row-level security, with a switcher, a team and invitations.
 
 What isn't there yet is listed in [section 9 of the spec](docs/00-product.md#9-planned).

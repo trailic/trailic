@@ -4,7 +4,7 @@ import { customEventsOf } from "@/application/custom-events";
 import { sitesOf } from "@/application/sites";
 import { periodEndingAt } from "@/application/time-range";
 import { counted, formatted, MiniColumns } from "@/components/charts";
-import { chosenSite, daysIn, LastWritten, NoSitesYet, SiteAndPeriod, type Query } from "@/components/reading";
+import { chosenSite, daysIn, ImportedNote, LastWritten, NoSitesYet, SiteAndPeriod, type Query } from "@/components/reading";
 import { Loading, PageHeading, Shell } from "@/components/shell";
 import { CodeBlock, EmptyState, ROWS } from "@/components/ui";
 import { currentSeat } from "@/infrastructure/auth/session";
@@ -19,7 +19,7 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
   if (sites.length === 0) return <NoSitesYet />;
   const site = chosenSite(sites, query, true);
   const days = daysIn(query);
-  const { events, lastWrittenAt } = await customEventsOf(db(), seat.workspaceId, site?.id ?? null, periodEndingAt(new Date(), days));
+  const { events, lastWrittenAt, imported } = await customEventsOf(db(), seat.workspaceId, site?.id ?? null, periodEndingAt(new Date(), days));
   return (
     <>
       <SiteAndPeriod action="/events" sites={sites} site={site} days={days} allSites />
@@ -44,6 +44,7 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
           ))}
         </ul>
       )}
+      <ImportedNote history={imported} />
       <LastWritten at={lastWrittenAt} />
     </>
   );

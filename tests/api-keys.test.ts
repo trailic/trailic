@@ -86,8 +86,8 @@ describe("GET /api/v1/figures", () => {
     expect(body).toMatchObject({ workspace: { id: mine.workspaceId, name: "Mine" }, from: "2026-11-04", to: "2026-11-05", timezone: "UTC" });
     expect(body.sites.map(({ name }: { name: string }) => name)).toEqual(["Mine"]);
     expect(body.sites[0].days).toEqual([
-      { date: "2026-11-04", visitors: 0, pageViews: 0, events: 0, bounces: 0 },
-      { date: "2026-11-05", visitors: 1, pageViews: 2, events: 0, bounces: 0 },
+      { date: "2026-11-04", visitors: 0, pageViews: 0, events: 0, bounces: 0, imported: false },
+      { date: "2026-11-05", visitors: 1, pageViews: 2, events: 0, bounces: 0, imported: false },
     ]);
   });
 
@@ -136,8 +136,8 @@ describe("GET /api/v1/figures/breakdown", () => {
       to: "2026-11-05",
       timezone: "UTC",
       days: [
-        { date: "2026-11-04", count: 0, visitors: 0 },
-        { date: "2026-11-05", count: 2, visitors: 1 },
+        { date: "2026-11-04", count: 0, visitors: 0, imported: false },
+        { date: "2026-11-05", count: 2, visitors: 1, imported: false },
       ],
     });
   });
@@ -145,9 +145,9 @@ describe("GET /api/v1/figures/breakdown", () => {
   it("says a custom event's occurrences, and nothing of a name nobody sent", async () => {
     const { key, site } = await withPricing();
     const signup = await (await breakdown(key, `?site=${site.id}&dimension=event&value=signup&days=1`)).json();
-    expect(signup.days).toEqual([{ date: "2026-11-05", count: 1, visitors: 1 }]);
+    expect(signup.days).toEqual([{ date: "2026-11-05", count: 1, visitors: 1, imported: false }]);
     const other = await (await breakdown(key, `?site=${site.id}&dimension=event&value=/pricing&days=1`)).json();
-    expect(other.days).toEqual([{ date: "2026-11-05", count: 0, visitors: 0 }]);
+    expect(other.days).toEqual([{ date: "2026-11-05", count: 0, visitors: 0, imported: false }]);
   });
 
   it("finds nothing of another workspace's site", async () => {

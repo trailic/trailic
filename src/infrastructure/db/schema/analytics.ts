@@ -99,6 +99,8 @@ export const dailySite = pgTable(
     events: integer().notNull(),
     /** Visitors who saw one page that day. */
     bounces: integer().notNull(),
+    /** Which import wrote this day, when another tool counted it rather than this one (see history_import). */
+    importId: uuid(),
   },
   (table) => [primaryKey({ columns: [table.siteId, table.day] }), index().on(table.workspaceId, table.day), tenantIsolation()],
 ).enableRLS();
@@ -123,6 +125,8 @@ export const dailyDimension = pgTable(
     /** Page views, or a custom event's occurrences. */
     count: integer().notNull(),
     visitors: integer().notNull(),
+    /** As on daily_site. */
+    importId: uuid(),
   },
   // The dimension before the day, so a workspace's top pages read its pages and not its whole period.
   (table) => [primaryKey({ columns: [table.siteId, table.day, table.dimension, table.value] }), index().on(table.workspaceId, table.dimension, table.day), tenantIsolation()],
@@ -141,6 +145,41 @@ export const dailyVital = pgTable(
     samples: integer().notNull(),
   },
   (table) => [primaryKey({ columns: [table.siteId, table.day, table.metric] }), tenantIsolation()],
+).enableRLS();
+
+// ─── Imported history ──────────────────────────────────────────────────────
+
+/**
+ * Daily figures another tool counted, before this one started on a site. They live in the rollups
+ * beside what's collected, so every reading works unchanged, and each row names its import. A day
+ * belongs to one source: an import never writes a day with collected figures, and a flush leaves an
+ * imported day alone. The rollups' import_id has no foreign key on purpose: removing an import would
+ * otherwise scan every rollup to check, and deleting a site already takes everything with it.
+ */
+export const historyImport = pgTable(
+  "history_import",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: workspaceColumn(),
+    siteId: uuid()
+      .notNull()
+      .references(() => site.id, { onDelete: "cascade" }),
+    /** Where these figures were counted, in the words of whoever imported them. */
+    source: text().notNull(),
+    /** What they count, since no two tools count alike: said wherever they're shown. */
+    counts: text().notNull(),
+    /** Anything else a reader should know, such as days the source holds nothing for. */
+    note: text(),
+    firstDay: date().notNull(),
+    lastDay: date().notNull(),
+    days: integer().notNull(),
+    pageViews: integer().notNull(),
+    events: integer().notNull(),
+    /** Of what was written: importing the same thing again writes nothing. */
+    checksum: text().notNull(),
+    importedAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [unique().on(table.siteId, table.source), tenantIsolation()],
 ).enableRLS();
 
 // ─── People ────────────────────────────────────────────────────────────────

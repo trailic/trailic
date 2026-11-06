@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { removeHistoryImport } from "@/application/history";
 import { createSite, deleteSite, NO_SECRET, rotateSiteKey, updateSite } from "@/application/sites";
 import type { Tried } from "@/domain/tried";
 import { currentSeat } from "@/infrastructure/auth/session";
@@ -50,4 +51,11 @@ export async function deleteSiteAction(siteId: string): Promise<void> {
   await deleteSite(db(), seat.workspaceId, seat.userId, siteId);
   sitesChanged();
   redirect("/sites");
+}
+
+export async function removeHistoryAction(siteId: string, importId: string): Promise<Tried> {
+  const seat = await currentSeat();
+  const removed = await removeHistoryImport(db(), seat.workspaceId, seat.userId, siteId, importId);
+  revalidatePath(`/sites/${siteId}`);
+  return removed;
 }

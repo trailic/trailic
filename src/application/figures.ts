@@ -9,7 +9,8 @@ export interface SiteFigures {
   id: string;
   name: string;
   lastWrittenAt: Date | null;
-  days: { date: string; visitors: number; pageViews: number; events: number; bounces: number }[];
+  /** `imported` says another tool counted that day. */
+  days: { date: string; visitors: number; pageViews: number; events: number; bounces: number; imported: boolean }[];
 }
 
 export interface Figures {
@@ -37,7 +38,7 @@ export async function figuresOf(db: Database, workspaceId: string, period: Perio
         ...one,
         days: period.days.map((date) => {
           const row = known.get(`${one.id}\n${date}`);
-          return { date, visitors: row?.visitors ?? 0, pageViews: row?.pageViews ?? 0, events: row?.events ?? 0, bounces: row?.bounces ?? 0 };
+          return { date, visitors: row?.visitors ?? 0, pageViews: row?.pageViews ?? 0, events: row?.events ?? 0, bounces: row?.bounces ?? 0, imported: Boolean(row?.importId) };
         }),
       })),
     };
@@ -55,8 +56,8 @@ export interface BreakdownFigures {
   from: string;
   to: string;
   timezone: "UTC";
-  /** `count` is the page's views, or the event's occurrences. Visitors are one per day. */
-  days: { date: string; count: number; visitors: number }[];
+  /** `count` is the page's views, or the event's occurrences. Visitors are one per day. `imported` says another tool counted that day. */
+  days: { date: string; count: number; visitors: number; imported: boolean }[];
 }
 
 /** One page's or one custom event's days: the caller names it, so this lists nothing. From rollups: they stay when raw rows go. Undefined for a site that isn't this workspace's. */
@@ -65,10 +66,10 @@ export async function breakdownOf(db: Database, workspaceId: string, { siteId, d
     const [found] = await tx.select({ id: site.id, name: site.name }).from(site).where(eq(site.id, siteId));
     if (!found) return undefined;
     const rows = await tx
-      .select({ date: dailyDimension.day, count: dailyDimension.count, visitors: dailyDimension.visitors })
+      .select({ date: dailyDimension.day, count: dailyDimension.count, visitors: dailyDimension.visitors, importId: dailyDimension.importId })
       .from(dailyDimension)
       .where(and(eq(dailyDimension.siteId, siteId), eq(dailyDimension.dimension, dimension), eq(dailyDimension.value, value), gte(dailyDimension.day, period.from), lte(dailyDimension.day, period.to)));
     const known = new Map(rows.map((row) => [row.date, row]));
-    return { site: found, dimension, value, from: period.from, to: period.to, timezone: "UTC", days: period.days.map((date) => ({ date, count: known.get(date)?.count ?? 0, visitors: known.get(date)?.visitors ?? 0 })) };
+    return { site: found, dimension, value, from: period.from, to: period.to, timezone: "UTC", days: period.days.map((date) => ({ date, count: known.get(date)?.count ?? 0, visitors: known.get(date)?.visitors ?? 0, imported: Boolean(known.get(date)?.importId) })) };
   });
 }

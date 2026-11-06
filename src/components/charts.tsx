@@ -11,7 +11,16 @@ const dayLabel = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateStr
 export interface DayValue {
   date: string;
   value: number;
+  /** Another tool counted this day: drawn paler, and said in words wherever it's read out. */
+  imported?: boolean;
 }
+
+function columnColour({ value, imported }: DayValue, most: number): string {
+  if (value === most) return imported ? "bg-blaze/45" : "bg-blaze";
+  return imported ? "bg-data/35" : "bg-data";
+}
+
+const importedWord = (imported?: boolean) => (imported ? ", imported" : "");
 
 /**
  * One measure over days, as columns growing from one baseline, with the busiest day, which the scale reads, in
@@ -27,19 +36,20 @@ export function DayColumns({ days, measure }: { days: DayValue[]; measure: strin
         {measure} per day, {dayLabel(days[0].date)} to {dayLabel(days[days.length - 1].date)}
       </figcaption>
       <div className="flex h-40 border-b">
-        <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground">{formatted(most)}</span>
+        <span className="w-14 shrink-0 font-mono text-[11px] text-muted-foreground">{formatted(most)}</span>
         <div className="flex min-w-0 flex-1 items-end gap-0.5">
-          {days.map(({ date, value }) => (
-            <div key={date} tabIndex={0} aria-label={`${dayLabel(date)}: ${formatted(value)}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center outline-none">
-              <div className={`w-full max-w-6 rounded-t-[3px] transition-colors group-hover:bg-blaze group-focus:bg-blaze ${value === most ? "bg-blaze" : "bg-data"}`} style={{ height: `${(value / most) * 100}%` }} />
+          {days.map(({ date, value, imported }) => (
+            <div key={date} tabIndex={0} aria-label={`${dayLabel(date)}: ${formatted(value)}${importedWord(imported)}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center outline-none">
+              <div className={`w-full max-w-6 rounded-t-[3px] transition-colors group-hover:bg-blaze group-focus:bg-blaze ${columnColour({ date, value, imported }, most)}`} style={{ height: `${(value / most) * 100}%` }} />
               <span className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground group-hover:block group-focus:block">
                 {dayLabel(date)}: <span className="font-mono">{formatted(value)}</span>
+                {importedWord(imported)}
               </span>
             </div>
           ))}
         </div>
       </div>
-      <div className="mt-1 ml-10 flex justify-between font-mono text-[11px] text-muted-foreground">
+      <div className="mt-1 ml-14 flex justify-between font-mono text-[11px] text-muted-foreground">
         <span>{dayLabel(days[0].date)}</span>
         <span>{dayLabel(days[days.length - 1].date)}</span>
       </div>
@@ -47,9 +57,12 @@ export function DayColumns({ days, measure }: { days: DayValue[]; measure: strin
         <summary className="cursor-pointer">As a table</summary>
         <table className="mt-2 w-full max-w-xs">
           <tbody>
-            {days.map(({ date, value }) => (
+            {days.map(({ date, value, imported }) => (
               <tr key={date}>
-                <td className="py-0.5">{dayLabel(date)}</td>
+                <td className="py-0.5">
+                  {dayLabel(date)}
+                  {importedWord(imported)}
+                </td>
                 <td className="py-0.5 text-right font-mono text-foreground">{formatted(value)}</td>
               </tr>
             ))}

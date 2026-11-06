@@ -15,7 +15,8 @@
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "build:library": "pnpm --filter trailic build",
     "test:library": "pnpm --filter trailic test:coverage",
-    "load-test": "tsx scripts/load-test.ts"
+    "load-test": "tsx scripts/load-test.ts",
+    "import-history": "tsx scripts/import-history.ts"
   },
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.14",

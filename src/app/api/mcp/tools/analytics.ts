@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { DEFAULT_WEEKS, MOST_WEEKS, retentionOf } from "@/application/cohorts";
 import { customEventsOf } from "@/application/custom-events";
+import { importedHistoryIn } from "@/application/history";
 import { runFunnel } from "@/application/funnels";
 import { overviewOf, topValues } from "@/application/overview";
 import { siteIn, sitesOf } from "@/application/sites";
@@ -21,6 +22,9 @@ const NO_SITE = "There’s no such site in this workspace. list_sites names them
 /** The figures come with how old they are: events reach the database on a schedule. */
 const STALENESS = "Figures are as of lastWrittenAt: events reach the database on a schedule, so the last hour may not be there yet.";
 
+/** So an assistant doesn't read another tool's figures as this one's. */
+const IMPORTED = "Days marked imported were counted by another tool and imported later: imported says which, and what they count.";
+
 const siteReadingTools = (server: McpServer, { services, workspaceId }: ToolContext) => {
   const { db } = services;
   const period = (days: number) => periodEndingAt(services.now(), boundedDays(days));
@@ -29,7 +33,7 @@ const siteReadingTools = (server: McpServer, { services, workspaceId }: ToolCont
     "site_overview",
     {
       title: "A site’s overview",
-      description: `Visitors, page views, top pages, referrers, UTM tags, countries and devices over a period, with one number per day. Leave out site for the whole workspace. A visitor is one per day, so a period’s visitors add up its days. ${STALENESS} ${FROM_THE_PUBLIC}`,
+      description: `Visitors, page views, top pages, referrers, UTM tags, countries and devices over a period, with one number per day. Leave out site for the whole workspace. A visitor is one per day, so a period’s visitors add up its days. ${STALENESS} ${IMPORTED} ${FROM_THE_PUBLIC}`,
       inputSchema: z.object({ site: SITE.optional(), days: DAYS }),
       annotations: { readOnlyHint: true },
     },
@@ -41,17 +45,18 @@ const siteReadingTools = (server: McpServer, { services, workspaceId }: ToolCont
 
   server.registerTool(
     "top_pages",
-    { title: "A site’s top pages", description: `The most viewed pages over a period. ${FROM_THE_PUBLIC}`, inputSchema: z.object({ site: SITE, days: DAYS, limit: z.number().int().min(1).max(100).default(20) }), annotations: { readOnlyHint: true } },
+    { title: "A site’s top pages", description: `The most viewed pages over a period. ${IMPORTED} ${FROM_THE_PUBLIC}`, inputSchema: z.object({ site: SITE, days: DAYS, limit: z.number().int().min(1).max(100).default(20) }), annotations: { readOnlyHint: true } },
     async ({ site, days, limit }) => {
       if (!(await siteIn(db, workspaceId, site))) return refusal(NO_SITE);
       const { from, to } = period(days);
-      return answer({ notice: FROM_THE_PUBLIC, from, to, timezone: "UTC", pages: await withWorkspace(db, workspaceId, (tx) => topValues(tx, site, "page", { from, to }, limit)) });
+      const read = await withWorkspace(db, workspaceId, async (tx) => ({ pages: await topValues(tx, site, "page", { from, to }, limit), imported: await importedHistoryIn(tx, site, { from, to }) }));
+      return answer({ notice: FROM_THE_PUBLIC, from, to, timezone: "UTC", ...read });
     },
   );
 
   server.registerTool(
     "list_events",
-    { title: "A site’s custom events", description: `The custom events a site sent over a period, the most frequent first, each with its days. ${FROM_THE_PUBLIC}`, inputSchema: z.object({ site: SITE, days: DAYS }), annotations: { readOnlyHint: true } },
+    { title: "A site’s custom events", description: `The custom events a site sent over a period, the most frequent first, each with its days. ${IMPORTED} ${FROM_THE_PUBLIC}`, inputSchema: z.object({ site: SITE, days: DAYS }), annotations: { readOnlyHint: true } },
     async ({ site, days }) => {
       if (!(await siteIn(db, workspaceId, site))) return refusal(NO_SITE);
       return answer({ notice: FROM_THE_PUBLIC, ...(await customEventsOf(db, workspaceId, site, period(days))) });
