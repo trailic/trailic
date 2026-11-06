@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collect, newLimits, type CollectorPorts, type IncomingRequest } from "@/application/collect";
 import type { DirectoryEntry } from "@/application/sites";
-import { isSignInArea, shortenedAddress, SIGN_IN_AREAS } from "@/domain/anonymous";
+import { isPersonalArea, PERSONAL_AREAS, shortenedAddress } from "@/domain/anonymous";
 import type { BufferedBatch } from "@/domain/collected";
 import { mintSiteKey, relayKeyOf } from "@/infrastructure/crypto/site-key";
 import type { WireEvent } from "../packages/trailic/src/wire";
@@ -105,6 +105,12 @@ describe("anonymous mode, at the collector", () => {
     expect(events()[0]).toMatchObject({ kind: "identify", userId: "user_1", traits: { plan: "pro" } });
   });
 
+  it("keeps no one's name from a profile page", async () => {
+    const { ports, events } = collector(ANONYMOUS);
+    await collect(ports, request([{ kind: "page", path: "/u/someone" }, { kind: "page", path: "/en/users/someone" }, { kind: "event", name: "copy", path: "/profile/someone" }]));
+    expect(events()).toEqual([]);
+  });
+
   it("counts nothing from a sign-in, account or admin area, and says nothing about it", async () => {
     const { ports, events } = collector(ANONYMOUS);
     const answer = await collect(ports, request([{ kind: "page", path: "/fr/login" }, { kind: "event", name: "copy", path: "/admin/users" }]));
@@ -138,13 +144,13 @@ describe("anonymous mode, at the collector", () => {
   });
 });
 
-describe("a sign-in, account or admin area", () => {
-  it.each(SIGN_IN_AREAS.flatMap((area) => [`/${area}`, `/${area}/`, `/${area}/deep/down`, `/en/${area}`, `/fr/${area}/x`, `/pt-br/${area}`, `/${area.toUpperCase()}`, `/${area}?next=/x`]))("%s isn't counted", (path) => {
-    expect(isSignInArea(path)).toBe(true);
+describe("a personal area", () => {
+  it.each(PERSONAL_AREAS.flatMap((area) => [`/${area}`, `/${area}/`, `/${area}/deep/down`, `/en/${area}`, `/fr/${area}/x`, `/pt-br/${area}`, `/${area.toUpperCase()}`, `/${area}?next=/x`]))("%s isn't counted", (path) => {
+    expect(isPersonalArea(path)).toBe(true);
   });
 
-  it.each(["/", "/en", "/pricing", "/admin-tools-guide", "/login-attacks", "/accounts", "/settings-guide", "/dashboards", "/author", "/en/admin-tools-guide", "/blog/login-attacks", "/blog/admin", "/en/blog/login", "/docs/auth/setup", "/en/en/login"])("%s is an ordinary page", (path) => {
-    expect(isSignInArea(path)).toBe(false);
+  it.each(["/", "/en", "/pricing", "/admin-tools-guide", "/login-attacks", "/accounts", "/settings-guide", "/dashboards", "/author", "/en/admin-tools-guide", "/blog/login-attacks", "/blog/admin", "/en/blog/login", "/docs/auth/setup", "/en/en/login", "/universities", "/uses", "/user-guide", "/users-guide", "/profiles", "/profile-picture-tips", "/mention", "/menu", "/fr/menu", "/onboarding-guide", "/favorite", "/portals", "/blog/u/x", "/questionnaire", "/resultats", "/results", "/learn"])("%s is an ordinary page", (path) => {
+    expect(isPersonalArea(path)).toBe(false);
   });
 });
 

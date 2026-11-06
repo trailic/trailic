@@ -1,4 +1,4 @@
-import { isSignInArea, shortenedAddress } from "@/domain/anonymous";
+import { isPersonalArea, shortenedAddress } from "@/domain/anonymous";
 import { anonymised, dayOf, happenedAt, LARGEST_BODY_BYTES, pathAndCampaign, referrerHost, WIRE_BATCH, wireEventsOf, type CollectedEvent, type WireEventParsed } from "@/domain/collected";
 import { RateWindow } from "@/domain/rate-window";
 import { hostAllowed, hostOf } from "@/domain/sites";
@@ -67,8 +67,8 @@ interface Client {
 
 const NO_CLIENT: Client = { visitor: null, country: null, device: null, browser: null, os: null };
 
-/** What anonymous mode leaves of a batch: no identify, nothing from a sign-in, account or admin area, and nothing that follows someone. */
-const leftByAnonymousMode = (events: CollectedEvent[]) => events.filter(({ kind, path }) => kind !== "identify" && !(path && isSignInArea(path))).map(anonymised);
+/** What anonymous mode leaves of a batch: no identify, nothing from a personal area, and nothing that follows someone. */
+const leftByAnonymousMode = (events: CollectedEvent[]) => events.filter(({ kind, path }) => kind !== "identify" && !(path && isPersonalArea(path))).map(anonymised);
 
 function shapedEvent(event: WireEventParsed, client: Client, receivedAt: Date, originHost: string | null): CollectedEvent {
   return {

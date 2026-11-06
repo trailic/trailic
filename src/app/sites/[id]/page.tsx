@@ -7,7 +7,7 @@ import { Loading, PageHeading, Shell } from "@/components/shell";
 import { ActionForm, ConfirmButton, CopyButton } from "@/components/try-button";
 import { Card, Code, CodeBlock, FIELD, Labelled } from "@/components/ui";
 import { when } from "@/components/when";
-import { SIGN_IN_AREAS } from "@/domain/anonymous";
+import { PERSONAL_AREAS } from "@/domain/anonymous";
 import { LIBRARY_INSTALL } from "@/domain/library";
 import { LONGEST_RETENTION_DAYS, SHORTEST_RETENTION_DAYS } from "@/domain/sites";
 import { managesSettings } from "@/domain/team";
@@ -61,9 +61,9 @@ function Setup({ site, mayChange }: { site: SiteRow; mayChange: boolean }) {
   );
 }
 
-const ANONYMOUS_ON = ["The visitor’s address is shortened before it goes into the day’s hash: IPv4 to /24, IPv6 to /48. People on one network with the same browser can then count as one visitor.", "UTM tags aren’t kept.", "identify is refused, and any user id or traits sent with an event are dropped, so nobody is followed from one day to the next.", `Sign-in, account and admin areas are never counted: ${SIGN_IN_AREAS.map((area) => `/${area}`).join(", ")}, after any locale at the start of the path.`];
+const ANONYMOUS_ON = ["The visitor’s address is shortened before it goes into the day’s hash: IPv4 to /24, IPv6 to /48. People on one network with the same browser can then count as one visitor.", "UTM tags aren’t kept.", "identify is refused, and any user id or traits sent with an event are dropped, so nobody is followed from one day to the next.", `Sign-in, account, admin and profile areas are never counted: ${PERSONAL_AREAS.map((area) => `/${area}`).join(", ")}, after any locale at the start of the path.`];
 
-const ANONYMOUS_OFF = ["The whole address goes into the day’s hash, and is then dropped. It’s never stored.", "UTM tags are kept, which campaign figures need.", "identify works, so funnels, retention and people can follow someone across days.", "Every page counts, sign-in and admin areas included."];
+const ANONYMOUS_OFF = ["The whole address goes into the day’s hash, and is then dropped. It’s never stored.", "UTM tags are kept, which campaign figures need.", "identify works, so funnels, retention and people can follow someone across days.", "Every page counts, sign-in, admin and profile areas included."];
 
 function ModeDescription({ title, current, lines }: { title: string; current: boolean; lines: string[] }) {
   return (
