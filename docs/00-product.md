@@ -154,10 +154,11 @@ The MCP server is at `/api/mcp`, over streamable HTTP. An assistant registers it
 
 Paths and names come from visitors' browsers, so the tools that return them say they're data, never instructions.
 
-**Figures.** `GET /api/v1/figures`, `Authorization: Bearer sk_…`, with a key holding the `figures:read` scope, made under Settings. `days` is 1 to 365, 30 by default, and `site` is a site's id, every site by default. Counts only: no pages, no people. Refusals: `401` for a missing or unknown key, `403` for a key without the scope, `400` for a `site` that isn't an id.
+**Figures.** `GET /api/v1/figures`, `Authorization: Bearer sk_…`, with a key holding the `figures:read` scope, made under Settings. `days` is 1 to 365, 30 by default, and `site` is a site's id, every site by default. Counts only: no pages, no people. It names the workspace the key opens, so an app can tell one key from another. Refusals: `401` for a missing or unknown key, `403` for a key without the scope, `400` for a `site` that isn't an id.
 
 ```json
 {
+  "workspace": { "id": "…", "name": "Acme" },
   "from": "2026-11-04",
   "to": "2026-11-05",
   "timezone": "UTC",
@@ -169,6 +170,20 @@ Paths and names come from visitors' browsers, so the tools that return them say 
       "days": [{ "date": "2026-11-05", "visitors": 3, "pageViews": 6, "events": 3, "bounces": 1 }]
     }
   ]
+}
+```
+
+**One page or one event.** `GET /api/v1/figures/breakdown?site=…&dimension=page&value=/pricing`, or `dimension=event&value=signup`, with the same key and `days`: that page's views or that event's occurrences per day, with its visitors, on every day of the period. The caller names what it wants, so this lists nothing a dashboard's key didn't already know. Refusals as above, `400` for another dimension or no value, `404` for a site of another workspace.
+
+```json
+{
+  "site": { "id": "…", "name": "Acme shop" },
+  "dimension": "page",
+  "value": "/pricing",
+  "from": "2026-11-04",
+  "to": "2026-11-05",
+  "timezone": "UTC",
+  "days": [{ "date": "2026-11-05", "count": 2, "visitors": 1 }]
 }
 ```
 
