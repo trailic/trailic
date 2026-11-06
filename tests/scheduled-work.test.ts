@@ -101,7 +101,7 @@ describe("the retention job", () => {
   it("does its work", async () => {
     const { workspaceId, userId } = await createTestWorkspace(db);
     await addSite(db, workspaceId, userId);
-    expect(await (await scheduler(retentionRoute)).json()).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0 });
+    expect(await (await scheduler(retentionRoute)).json()).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0, failed: 0 });
   });
 });
 

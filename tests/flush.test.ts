@@ -409,3 +409,46 @@ describe("a database that has stopped answering", () => {
     expect(buffer.waiting).toHaveLength(1);
   });
 });
+
+describe("a workspace failing, with more waiting behind it", () => {
+  const failingFor = (siteId: string) => db.execute(sql.raw(`alter table daily_site add constraint fail_for_a_test check (site_id <> '${siteId}') not valid`));
+  const failingNoMore = () => db.execute(sql`alter table daily_site drop constraint fail_for_a_test`);
+  const inOnes = () => ({ ...buffer, claim: () => buffer.claim(1) });
+
+  it("doesn't stop the flush for what comes after it in the queue", async () => {
+    const [broken, fine] = [await seat("Broken"), await seat("Fine")];
+    await buffer.append(batchOf(broken.site, [collected()]));
+    await buffer.append(batchOf(fine.site, [collected()]));
+    await buffer.append(batchOf(fine.site, [collected()]));
+    await failingFor(broken.site.id);
+    const report = await flushBuffer({ ...services(), buffer: inOnes() }).finally(failingNoMore);
+    expect(report).toMatchObject({ failed: 1, batches: 2, events: 2 });
+    expect(await eventsOf(fine.workspaceId)).toHaveLength(2);
+    expect(await eventsOf(broken.workspaceId)).toEqual([]);
+    expect(buffer.waiting).toHaveLength(1);
+  });
+
+  it("isn't tried again in the same run, and everything it held goes back once the run ends", async () => {
+    const broken = await seat("Broken");
+    const first = batchOf(broken.site, [collected()]);
+    await buffer.append(first);
+    await buffer.append(batchOf(broken.site, [collected()]));
+    await failingFor(broken.site.id);
+    const report = await flushBuffer({ ...services(), buffer: inOnes() }).finally(failingNoMore);
+    expect(report).toMatchObject({ failed: 2, batches: 0 });
+    expect(buffer.waiting).toHaveLength(2);
+    expect(buffer.claims).toBe(3);
+    expect(await flushBuffer(services())).toMatchObject({ batches: 2, failed: 0 });
+    expect(await eventsOf(broken.workspaceId)).toHaveLength(2);
+  });
+
+  it("isn't everyone's problem when what it holds can't get a partition", async () => {
+    const [odd, fine] = [await seat("Odd"), await seat("Fine")];
+    await buffer.append(batchOf(odd.site, [collected({ at: "0000-01-15T00:00:00.000Z" })]));
+    await buffer.append(batchOf(fine.site, [collected()]));
+    const report = await flushBuffer(services());
+    expect(report).toMatchObject({ batches: 2, events: 1, failed: 0 });
+    expect(await eventsOf(fine.workspaceId)).toHaveLength(1);
+    expect(buffer.waiting).toEqual([]);
+  });
+});

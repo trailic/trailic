@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { flushBuffer } from "@/application/flush";
 import { peopleOf } from "@/application/people";
 import { applyRetention } from "@/application/retention";
@@ -70,8 +70,8 @@ describe("raw events", () => {
   it("stay put when they're young enough, and it can run again with nothing to do", async () => {
     const { workspaceId, site } = await seat();
     await flushed(site, [collected({ at: daysAgo(1) })]);
-    expect(await applyRetention(db, NOW)).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0 });
-    expect(await applyRetention(db, NOW)).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0 });
+    expect(await applyRetention(db, NOW)).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0, failed: 0 });
+    expect(await applyRetention(db, NOW)).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0, failed: 0 });
     expect(await rawDays(workspaceId)).toEqual([1]);
   });
 });
@@ -122,7 +122,7 @@ describe("what else ages", () => {
   });
 
   it("does nothing with no sites", async () => {
-    expect(await applyRetention(db, NOW)).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0 });
+    expect(await applyRetention(db, NOW)).toEqual({ partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0, failed: 0 });
   });
 });
 
@@ -134,5 +134,25 @@ describe("rollups, after their raw rows have gone", () => {
     expect(await rawDays(workspaceId)).toEqual([]);
     const rows = await withWorkspace(db, workspaceId, (tx) => tx.execute(sql`select value, count from daily_dimension where dimension = 'page'`));
     expect(JSON.stringify(rows)).toContain("/old");
+  });
+});
+
+describe("a site that can't be trimmed", () => {
+  it("doesn't keep the others from being trimmed, says so, and comes round again on the next run", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const [broken, fine] = [await seat("Broken"), await seat("Fine")];
+    await flushed(broken.site, [collected({ at: daysAgo(95), userId: "someone" })]);
+    await flushed(fine.site, [collected({ at: daysAgo(95) })]);
+    await flushed(fine.site, [collected({ at: daysAgo(1) })]);
+    await db.execute(sql.raw(`create function fail_for_a_test() returns trigger language plpgsql as $$ begin raise exception 'no'; end $$`));
+    await db.execute(sql.raw(`create trigger fail_for_a_test before delete on person for each row when (old.site_id = '${broken.site.id}') execute function fail_for_a_test()`));
+    const report = await applyRetention(db, NOW);
+    expect(report.failed).toBe(1);
+    expect(await rawDays(fine.workspaceId)).toEqual([1]);
+    expect(await rawDays(broken.workspaceId)).toEqual([95]);
+    await db.execute(sql`drop trigger fail_for_a_test on person`);
+    expect((await applyRetention(db, NOW)).failed).toBe(0);
+    expect(await rawDays(broken.workspaceId)).toEqual([]);
+    error.mockRestore();
   });
 });

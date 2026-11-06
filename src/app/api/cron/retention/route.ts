@@ -10,5 +10,7 @@ export async function GET(request: Request) {
   if (!(await knownWork()).hasSites) return Response.json({ idle: true });
   // It runs again tomorrow: a frozen database shouldn't keep this open until the platform kills it.
   if (!(await databaseAnswers(db()))) return Response.json({ failed: "The database isn’t answering." }, { status: 503 });
-  return Response.json(await applyRetention(db(), new Date()));
+  const report = await applyRetention(db(), new Date());
+  // A failure is reported as one, so the platform's logs show it.
+  return Response.json(report, { status: report.failed > 0 ? 503 : 200 });
 }

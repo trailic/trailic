@@ -14,6 +14,8 @@ export interface RetentionReport {
   partitionsDropped: number;
   rowsDeleted: number;
   peopleForgotten: number;
+  /** Sites that couldn't be trimmed: the next run tries them again. */
+  failed: number;
 }
 
 /** The first day to keep: whole days go, so a day is either all there or not there at all, and rollups can be rebuilt from what remains. */
@@ -48,7 +50,7 @@ async function trimSite(db: Database, { id, workspaceId, retentionDays }: { id: 
  */
 export async function applyRetention(db: Database, now: Date): Promise<RetentionReport> {
   const sites = await db.select({ id: site.id, workspaceId: site.workspaceId, retentionDays: site.retentionDays }).from(site);
-  const report: RetentionReport = { partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0 };
+  const report: RetentionReport = { partitionsDropped: 0, rowsDeleted: 0, peopleForgotten: 0, failed: 0 };
   const expired = new Date(now.getTime() - LEDGER_DAYS * DAY_MS);
   await db.delete(flushedBatch).where(lt(flushedBatch.flushedAt, expired));
   await db.delete(erasedPerson).where(lt(erasedPerson.erasedAt, expired));
@@ -56,9 +58,15 @@ export async function applyRetention(db: Database, now: Date): Promise<Retention
   const oldestKept = sites.map(({ retentionDays }) => firstKeptDay(now, retentionDays)).sort()[0];
   report.partitionsDropped = await dropWholeMonths(db, oldestKept);
   for (const one of sites) {
-    const { rows, people } = await trimSite(db, one, now);
-    report.rowsDeleted += rows;
-    report.peopleForgotten += people;
+    // One site's trouble is none of the others': each said what it keeps, and each is owed it.
+    try {
+      const { rows, people } = await trimSite(db, one, now);
+      report.rowsDeleted += rows;
+      report.peopleForgotten += people;
+    } catch (error) {
+      report.failed += 1;
+      console.error(`Retention failed for site ${one.id}:`, error);
+    }
   }
   return report;
 }

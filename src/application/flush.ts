@@ -245,8 +245,18 @@ async function settleInTurns(claims: Claim[], settle: (claim: Claim) => Promise<
 const done = (claim: Claim) => claim.done();
 const giveBack = (claim: Claim) => claim.giveBack();
 
-/** One round: what's claimed gets settled before this returns, one way or the other. */
-async function flushRound(services: FlushServices, claims: Claim[], report: FlushReport): Promise<void> {
+/**
+ * What failed so far in this run. Its batches stay claimed until the run ends: given back at once they
+ * would come straight back as the next round, ahead of everything behind them, and a workspace that
+ * can't be written would keep the rest of the queue waiting.
+ */
+interface FailedSoFar {
+  claims: Claim[];
+  workspaces: Set<string>;
+}
+
+/** One round: what's claimed gets settled or held before this returns, one way or the other. */
+async function flushRound(services: FlushServices, claims: Claim[], report: FlushReport, failed: FailedSoFar): Promise<void> {
   const { parsed, malformed } = parseClaims(claims);
   await settleInTurns(malformed, done);
   report.dropped += malformed.length;
@@ -259,45 +269,54 @@ async function flushRound(services: FlushServices, claims: Claim[], report: Flus
       done,
     );
   report.dropped += refused;
-  await ensureEventPartitions(services.db, keepers.flatMap(({ batch }) => batch.events.map(({ at }) => at)));
   for (const [workspaceId, batches] of byWorkspace(keepers, sites)) {
     try {
+      if (failed.workspaces.has(workspaceId)) throw new Error("It already failed in this run.");
+      // Only what will be kept: an event past its site's retention isn't written, and has no need of a partition.
+      await ensureEventPartitions(services.db, batches.flatMap(({ batch }) => keptEvents(batch, sites.get(batch.siteId) as KnownSite, services.now()).map(({ at }) => at)));
       const { events, duplicates } = await writeWorkspace(services.db, workspaceId, batches, sites, services.now());
       Object.assign(report, { batches: report.batches + batches.length - duplicates, events: report.events + events, duplicates: report.duplicates + duplicates });
       await settleInTurns(batches.map(({ claim }) => claim), done);
     } catch (error) {
-      console.error(`Flush failed for workspace ${workspaceId}; its batches go back:`, error);
+      if (!failed.workspaces.has(workspaceId)) console.error(`Flush failed for workspace ${workspaceId}; its batches go back:`, error);
       report.failed += batches.length;
-      await settleInTurns(batches.map(({ claim }) => claim), giveBack);
+      failed.workspaces.add(workspaceId);
+      failed.claims.push(...batches.map(({ claim }) => claim));
     }
   }
 }
 
 /**
  * Empties the buffer into Postgres, or as much as fits in a run. Nothing waiting means no database at
- * all, so a quiet hour lets it sleep. A workspace that fails doesn't stop the others, and what failed
- * goes back to the buffer, which keeps it until a later run succeeds.
+ * all, so a quiet hour lets it sleep. A workspace that fails stops neither the others nor what is
+ * queued behind it, and what failed goes back to the buffer as the run ends, which keeps it until a
+ * later run succeeds.
  */
 export async function flushBuffer(services: FlushServices, longestMs = LONGEST_FLUSH_MS, waitForDatabaseMs?: number): Promise<FlushReport> {
   const report = emptyReport();
   const startedAt = Date.now();
-  for (;;) {
-    const claims = await services.buffer.claim(BATCHES_PER_ROUND);
-    if (claims.length === 0) {
-      report.idle = report.batches + report.duplicates + report.dropped + report.failed === 0;
-      return report;
+  const failed: FailedSoFar = { claims: [], workspaces: new Set() };
+  try {
+    for (;;) {
+      const claims = await services.buffer.claim(BATCHES_PER_ROUND);
+      if (claims.length === 0) {
+        report.idle = report.batches + report.duplicates + report.dropped + report.failed === 0;
+        return report;
+      }
+      try {
+        if (!(await databaseAnswers(services.db, waitForDatabaseMs))) throw new Error("The database isn’t answering.");
+        await flushRound(services, claims, report, failed);
+      } catch (error) {
+        // The database didn't answer at all: everything claimed goes back, and it's no use trying more now.
+        console.error("Flush stopped:", error);
+        report.failed += claims.length;
+        await settleInTurns(claims, giveBack);
+        return report;
+      }
+      if (Date.now() - startedAt > longestMs) return report;
     }
-    try {
-      if (!(await databaseAnswers(services.db, waitForDatabaseMs))) throw new Error("The database isn’t answering.");
-      await flushRound(services, claims, report);
-    } catch (error) {
-      // The database didn't answer at all: everything claimed goes back, and it's no use trying more now.
-      console.error("Flush stopped:", error);
-      report.failed += claims.length;
-      await settleInTurns(claims, giveBack);
-      return report;
-    }
-    if (report.failed > 0 || Date.now() - startedAt > longestMs) return report;
+  } finally {
+    await settleInTurns(failed.claims, giveBack);
   }
 }
 
