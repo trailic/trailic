@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Overpass, Overpass_Mono } from "next/font/google";
 import { BRAND } from "@/domain/brand";
 import "./globals.css";
 
-const sans = Geist({ variable: "--font-brand-sans", subsets: ["latin"], display: "swap" });
-const mono = Geist_Mono({ variable: "--font-brand-mono", subsets: ["latin"], display: "swap" });
-const serif = Instrument_Serif({ variable: "--font-brand-serif", subsets: ["latin"], weight: "400", style: "italic", display: "swap" });
+/** Overpass descends from Highway Gothic, the lettering of road signs: wayfinding is what this product does. */
+const sans = Overpass({ variable: "--font-brand-sans", subsets: ["latin"], display: "swap" });
+const mono = Overpass_Mono({ variable: "--font-brand-mono", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: BRAND, template: `%s · ${BRAND}` },
@@ -13,9 +13,16 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fcfcfb" },
+    { media: "(prefers-color-scheme: dark)", color: "#14110f" },
+  ],
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`dark ${sans.variable} ${mono.variable} ${serif.variable} h-full antialiased`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { boundedDays } from "@/application/time-range";
 import type { SiteRow } from "@/application/sites";
 import { when } from "./when";
-import { Card, INLINE_FIELD, QuietButton } from "./ui";
+import { EmptyState, INLINE_FIELD, QuietButton } from "./ui";
 
 export type Query = Record<string, string | string[] | undefined>;
 
@@ -57,14 +57,11 @@ export function LastWritten({ at }: { at: Date | null }) {
 /** For a page with nothing to read, because there's nothing to measure yet. */
 export function NoSitesYet() {
   return (
-    <Card className="max-w-xl">
-      <p className="text-sm text-muted-foreground">
-        No site yet.{" "}
-        <Link href="/sites" className="text-link hover:underline">
-          Add your first
-        </Link>{" "}
-        and put its snippet in your layout.
-      </p>
-    </Card>
+    <EmptyState title="No site yet" className="max-w-xl">
+      <Link href="/sites" className="text-link hover:underline">
+        Add your first
+      </Link>{" "}
+      and put its snippet in your layout.
+    </EmptyState>
   );
 }

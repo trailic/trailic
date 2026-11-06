@@ -21,7 +21,7 @@ function ConnectAnAssistant() {
   const address = mcpResource(env());
   return (
     <Card>
-      <h2 className="font-semibold tracking-[-0.02em]">Connect your assistant</h2>
+      <h2 className="font-semibold">Connect your assistant</h2>
       <p className="mt-2 text-sm text-muted-foreground">The address of this instance’s MCP server. Assistants only read, as whoever signed them in:</p>
       <div className="mt-3">
         <Code>{address}</Code>

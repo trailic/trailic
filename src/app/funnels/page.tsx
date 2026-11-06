@@ -6,7 +6,7 @@ import { sitesOf } from "@/application/sites";
 import { chosenSite, NoSitesYet, SiteAndPeriod, type Query } from "@/components/reading";
 import { Loading, PageHeading, Shell } from "@/components/shell";
 import { ActionForm } from "@/components/try-button";
-import { Card, FIELD, Labelled } from "@/components/ui";
+import { Card, FIELD, Labelled, ROWS } from "@/components/ui";
 import { DEFAULT_WINDOW_HOURS, LONGEST_WINDOW_HOURS, stepLabel } from "@/domain/funnels";
 import { currentSeat } from "@/infrastructure/auth/session";
 import { db } from "@/infrastructure/db/client";
@@ -26,7 +26,7 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
       <SiteAndPeriod action="/funnels" sites={sites} site={site} withPeriod={false} />
       <div className="max-w-3xl space-y-4">
         {funnels.length > 0 && (
-          <ul className="divide-y rounded-2xl border bg-card">
+          <ul className={ROWS}>
             {funnels.map((funnel) => (
               <li key={funnel.id} className="px-5 py-3 text-sm">
                 <Link href={`/funnels/${funnel.id}`} className="font-medium hover:underline">
@@ -38,7 +38,7 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
           </ul>
         )}
         <Card>
-          <h2 className="mb-3 font-semibold tracking-[-0.02em]">A new funnel on {site.name}</h2>
+          <h2 className="mb-3 font-semibold">A new funnel on {site.name}</h2>
           <ActionForm action={createFunnelAction} submit="Save the funnel" busy="…">
             <input type="hidden" name="site" value={site.id} />
             <Labelled label="Name">

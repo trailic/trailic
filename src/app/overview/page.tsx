@@ -20,14 +20,14 @@ function Totals({ totals }: { totals: Overview["totals"] }) {
     { label: "Bounce rate", value: totals.visitors === 0 ? "None yet" : percent(totals.bounces / totals.visitors) },
   ];
   return (
-    <dl className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-4">
       {figures.map(({ label, value }) => (
-        <Card key={label} className="py-4">
+        <div key={label} className="bg-card px-6 py-5">
           <dt className="text-sm text-muted-foreground">{label}</dt>
-          <dd data-figure={label} className="mt-1 text-2xl font-semibold tracking-[-0.03em]">
+          <dd data-figure={label} className="mt-1 text-3xl font-bold tracking-[-0.03em] tabular-nums">
             {value}
           </dd>
-        </Card>
+        </div>
       ))}
     </dl>
   );
@@ -39,11 +39,11 @@ function WebVitals({ vitals }: { vitals: VitalFigure[] }) {
   if (vitals.length === 0) return null;
   return (
     <Card className="mt-4">
-      <h2 className="text-sm font-semibold tracking-[-0.02em]">Web vitals, 75th percentile</h2>
+      <h2 className="text-sm font-semibold">Web vitals, 75th percentile</h2>
       <ul className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-sm">
         {vitals.map(({ metric, p75, samples }) => (
           <li key={metric}>
-            <span className="text-muted-foreground">{metric}</span> <span className="font-mono">{Number(p75.toFixed(3))}{VITAL_UNITS[metric] ?? ""}</span> <span className="text-xs text-muted-foreground">from {formatted(samples)}</span>
+            <span className="text-muted-foreground">{metric}</span> <span className="font-mono">{VITAL_UNITS[metric] ? Math.round(p75) : Number(p75.toFixed(3))}{VITAL_UNITS[metric] ?? ""}</span> <span className="text-xs text-muted-foreground">from {formatted(samples)}</span>
           </li>
         ))}
       </ul>
@@ -63,7 +63,7 @@ function Figures({ overview }: { overview: Overview }) {
     <>
       <Totals totals={overview.totals} />
       <Card className="mt-4">
-        <h2 className="mb-3 text-sm font-semibold tracking-[-0.02em]">Page views</h2>
+        <h2 className="mb-3 text-sm font-semibold">Page views</h2>
         <DayColumns days={overview.days.map(({ date, pageViews }) => ({ date, value: pageViews }))} measure="Page views" />
       </Card>
       <Card className="mt-4">

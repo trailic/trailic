@@ -29,8 +29,8 @@ async function Reset({ searchParams }: Pick<PageProps<"/reset-password">, "searc
 export default function ResetPasswordPage({ searchParams }: PageProps<"/reset-password">) {
   return (
     <main className="relative isolate flex flex-1 flex-col items-center justify-center px-4 py-16">
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-96 bg-glow" />
-      <Logo id="reset-password" />
+      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-contours" />
+      <Logo />
       <h1 className="mt-8 text-center text-3xl font-semibold tracking-[-0.04em]">A new password</h1>
       <Suspense>
         <Reset searchParams={searchParams} />

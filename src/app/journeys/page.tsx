@@ -7,15 +7,25 @@ import { periodEndingAt } from "@/application/time-range";
 import { counted, formatted, percent } from "@/components/charts";
 import { chosenSite, daysIn, LastWritten, NoSitesYet, oneOf, SiteAndPeriod, type Query } from "@/components/reading";
 import { Loading, PageHeading, Shell } from "@/components/shell";
-import { Card, INLINE_FIELD } from "@/components/ui";
+import { Card, EmptyState, INLINE_FIELD } from "@/components/ui";
 import { currentSeat } from "@/infrastructure/auth/session";
 import { db } from "@/infrastructure/db/client";
 import { withWorkspace } from "@/infrastructure/db/tenant";
 
 export const metadata: Metadata = { title: "Journeys" };
 
+/** Pages in the order people walked them, joined by a stretch of footpath. */
+function Path({ pages }: { pages: string[] }) {
+  return pages.map((page, index) => (
+    <span key={index}>
+      {index > 0 && <span className="mx-1.5 inline-block w-4 border-t-2 border-dashed border-blaze align-middle" role="img" aria-label="then" />}
+      {page}
+    </span>
+  ));
+}
+
 function Paths({ report }: { report: JourneysReport }) {
-  if (report.journeys.length === 0) return <Card className="max-w-2xl text-sm text-muted-foreground">Nobody reached {report.start} in this period.</Card>;
+  if (report.journeys.length === 0) return <EmptyState className="max-w-2xl">Nobody reached {report.start} in this period.</EmptyState>;
   return (
     <Card className="max-w-4xl">
       <p className="mb-3 text-sm text-muted-foreground">
@@ -24,8 +34,8 @@ function Paths({ report }: { report: JourneysReport }) {
       <ul className="space-y-1">
         {report.journeys.map(({ next, visits }) => (
           <li key={next.join("\n")} data-journey={next.join(" ") || "(left)"} className="relative flex items-center justify-between gap-3 rounded-md px-2 py-1 text-sm">
-            <span aria-hidden className="absolute inset-y-0 left-0 rounded-md bg-calm/15" style={{ width: `${(visits / report.visits) * 100}%` }} />
-            <span className="relative min-w-0 truncate">{next.length > 0 ? next.join(" → ") : <span className="text-muted-foreground">Went no further</span>}</span>
+            <span aria-hidden className="absolute inset-y-0 left-0 rounded-md bg-data/8" style={{ width: `${(visits / report.visits) * 100}%` }} />
+            <span className="relative min-w-0 truncate">{next.length > 0 ? <Path pages={next} /> : <span className="text-muted-foreground">Went no further</span>}</span>
             <span className="relative shrink-0 font-mono text-xs text-muted-foreground">
               <span className="text-foreground">{formatted(visits)}</span> · {percent(visits / report.visits)}
             </span>
@@ -57,7 +67,7 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
           ))}
         </datalist>
       </SiteAndPeriod>
-      {report ? <Paths report={report} /> : <Card className="max-w-2xl text-sm text-muted-foreground">No page views in this period.</Card>}
+      {report ? <Paths report={report} /> : <EmptyState className="max-w-2xl">No page views in this period.</EmptyState>}
       {report && <LastWritten at={report.lastWrittenAt} />}
     </>
   );

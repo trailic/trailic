@@ -46,10 +46,10 @@ async function SignIn({ searchParams }: Pick<PageProps<"/sign-in">, "searchParam
 export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   return (
     <main className="relative isolate flex flex-1 flex-col items-center justify-center px-4 py-16">
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-96 bg-glow" />
-      <Logo id="sign-in" />
-      <h1 className="mt-8 text-center text-3xl font-semibold tracking-[-0.04em]">
-        What people do, <span className="font-serif font-normal italic tracking-normal text-sheen">on all your sites</span>
+      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-contours" />
+      <Logo />
+      <h1 className="mt-8 text-center text-3xl font-bold tracking-[-0.03em]">
+        What people do, <span className="trail-underline">on all your sites</span>
       </h1>
       <Suspense>
         <SignIn searchParams={searchParams} />

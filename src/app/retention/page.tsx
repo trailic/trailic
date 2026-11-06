@@ -13,12 +13,12 @@ export const metadata: Metadata = { title: "Retention" };
 
 const weekName = (week: string) => new Date(`${week}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
-/** A cohort's week: the share that came back, darker for more. The number stays in the text's own colour, so it reads at any shade. */
+/** A cohort's week: the share that came back, redder for more. The number stays in the text's own colour, so it reads at any shade. */
 function Cell({ people, size }: { people: number; size: number }) {
   const share = size === 0 ? 0 : people / size;
   return (
     <td title={`${formatted(people)} of ${formatted(size)}`} className="px-0.5 py-0.5">
-      <div className="rounded-md px-2 py-1.5 text-center font-mono text-xs" style={{ background: `color-mix(in oklab, var(--calm) ${Math.round(share * 55)}%, transparent)` }}>
+      <div className="rounded-sm px-2 py-1.5 text-center font-mono text-xs" style={{ background: `color-mix(in oklab, var(--blaze) ${Math.round(share * 70)}%, transparent)` }}>
         {size === 0 ? "" : percent(share)}
       </div>
     </td>
@@ -27,7 +27,7 @@ function Cell({ people, size }: { people: number; size: number }) {
 
 function Cohorts({ table }: { table: RetentionTable }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border bg-card p-4">
+    <div className="overflow-x-auto rounded-xl border bg-card p-4">
       <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
         <thead>
           <tr className="text-xs text-muted-foreground">

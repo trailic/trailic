@@ -60,8 +60,8 @@ async function Invitation({ params }: Pick<PageProps<"/join/[token]">, "params">
 export default function JoinPage({ params }: PageProps<"/join/[token]">) {
   return (
     <main className="relative isolate flex flex-1 flex-col items-center justify-center px-4 py-16">
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-96 bg-glow" />
-      <Logo id="join" />
+      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-contours" />
+      <Logo />
       <Suspense fallback={<Loading />}>
         <Invitation params={params} />
       </Suspense>

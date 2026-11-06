@@ -53,8 +53,8 @@ async function Request({ searchParams }: { searchParams: PageProps<"/consent">["
 export default function ConsentPage({ searchParams }: PageProps<"/consent">) {
   return (
     <main className="relative isolate flex flex-1 flex-col items-center justify-center px-4 py-16">
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-96 bg-glow" />
-      <Logo id="consent" />
+      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[32rem] bg-contours" />
+      <Logo />
       <Suspense fallback={<Loading />}>
         <Request searchParams={searchParams} />
       </Suspense>

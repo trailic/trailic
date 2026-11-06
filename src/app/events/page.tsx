@@ -6,7 +6,7 @@ import { periodEndingAt } from "@/application/time-range";
 import { counted, formatted, MiniColumns } from "@/components/charts";
 import { chosenSite, daysIn, LastWritten, NoSitesYet, SiteAndPeriod, type Query } from "@/components/reading";
 import { Loading, PageHeading, Shell } from "@/components/shell";
-import { Card, CodeBlock } from "@/components/ui";
+import { CodeBlock, EmptyState, ROWS } from "@/components/ui";
 import { currentSeat } from "@/infrastructure/auth/session";
 import { db } from "@/infrastructure/db/client";
 
@@ -24,14 +24,14 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
     <>
       <SiteAndPeriod action="/events" sites={sites} site={site} days={days} allSites />
       {events.length === 0 ? (
-        <Card className="max-w-2xl">
-          <p className="text-sm text-muted-foreground">No custom events in this period. Send one from your site:</p>
-          <div className="mt-3">
+        <EmptyState className="max-w-2xl">
+          <p>No custom events in this period. Send one from your site:</p>
+          <div className="mt-3 text-foreground">
             <CodeBlock>{`import { track } from "trailic";\n\ntrack("signup", { plan: "pro" });`}</CodeBlock>
           </div>
-        </Card>
+        </EmptyState>
       ) : (
-        <ul className="divide-y rounded-2xl border bg-card">
+        <ul className={ROWS}>
           {events.map((event) => (
             <li key={event.name} data-event={event.name} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3 text-sm">
               <span className="min-w-0 flex-1 truncate font-medium">{event.name}</span>

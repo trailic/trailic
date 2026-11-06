@@ -1,17 +1,13 @@
 @import "tailwindcss";
 @import "./theme.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   /* Typography: the font files are loaded in the root layout. */
   --font-sans: var(--font-brand-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-brand-mono), ui-monospace, SFMono-Regular, monospace;
-  --font-heading: var(--font-brand-heading, var(--font-brand-sans)), ui-sans-serif, system-ui, sans-serif;
-  /* The editorial accent: a few words of a heading in serif italic. */
-  --font-serif: var(--font-brand-serif), ui-serif, Georgia, serif;
+  --font-heading: var(--font-brand-sans), ui-sans-serif, system-ui, sans-serif;
 
-  /* Semantic colors — values live in theme.css */
+  /* Semantic colors: values live in theme.css */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
@@ -28,26 +24,15 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-link: var(--link);
+  --color-blaze: var(--blaze);
+  --color-mark-plate: var(--mark-plate);
+  --color-data: var(--data);
+  --color-calm: var(--calm);
+  --color-alert: var(--alert);
   --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-info: var(--info);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 
   /* Brand scale as utilities: bg-brand-50, text-brand-700, … */
   --color-brand-50: var(--brand-50);
@@ -62,28 +47,21 @@
   --color-brand-900: var(--brand-900);
   --color-brand-950: var(--brand-950);
 
-  /* What is fine, and what needs a look. */
-  --color-calm: var(--calm);
-  --color-alert: var(--alert);
-  --color-warm-300: var(--warm-300);
-  --color-warm-400: var(--warm-400);
-  --color-warm-500: var(--warm-500);
-  --color-warm-600: var(--warm-600);
-
   /* Radius scale, derived from --radius */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
-
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;
@@ -91,14 +69,13 @@
   }
   html {
     @apply font-sans;
-    font-feature-settings: var(--font-features);
     text-rendering: optimizeLegibility;
   }
   h1,
   h2,
   h3 {
     font-family: var(--font-heading);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
   .grid > * {
@@ -106,42 +83,17 @@
   }
 }
 
-@utility bg-glow {
-  background-image: radial-gradient(
-    ellipse 60% 50% at 50% -10%,
-    color-mix(in oklab, var(--calm) 14%, transparent),
-    transparent
-  );
+/* The contour lines of a map behind a page's first screen, fading out downwards. Drawn with a mask, so they follow the theme. */
+@utility bg-contours {
+  background-color: var(--contour);
+  mask-image: linear-gradient(to bottom, black 35%, transparent), url("/contours.svg");
+  mask-composite: intersect;
+  mask-size: 100% 100%, cover;
+  mask-position: center;
+  mask-repeat: no-repeat;
 }
-/* The few words of a heading that carry the idea. */
-@utility text-sheen {
-  background-image: linear-gradient(180deg, var(--sheen-top) 20%, var(--sheen-bottom));
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-}
-/* A card with a hairline that catches the light at the top and fades down its sides. */
-@utility card-premium {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(180deg, color-mix(in oklab, var(--foreground) 3%, transparent), transparent 38%) padding-box,
-    linear-gradient(var(--card), var(--card)) padding-box,
-    linear-gradient(180deg, color-mix(in oklab, var(--foreground) 15%, transparent), color-mix(in oklab, var(--foreground) 5%, transparent) 60%) border-box;
-}
-/* A faint vertical sheen on cards, top-lit like glass. */
-@utility card-sheen {
-  background-image: linear-gradient(180deg, color-mix(in oklab, var(--foreground) 3.5%, transparent), transparent 40%);
-}
-/* A fine grain over the whole page, as on film: it takes the digital edge off flat darks. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  pointer-events: none;
-  opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.dark body::after {
-  opacity: 0.045;
+/* A footpath on a map, drawn under a word: what's on this page, and what's next. */
+@utility trail-underline {
+  text-decoration: underline dashed var(--blaze) 2px;
+  text-underline-offset: 6px;
 }

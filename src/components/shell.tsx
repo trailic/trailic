@@ -4,10 +4,11 @@ import { mayStartWorkspace } from "@/application/workspaces";
 import { currentMember, workspacesInBrowser, type Member } from "@/infrastructure/auth/session";
 import { env } from "@/infrastructure/env";
 import { Logo } from "./logo";
+import { NavLinks, PlainNavLinks, type NavLink } from "./nav-links";
 import { SignOutButton } from "./sign-out-button";
 import { WorkspaceMenu } from "./workspace-menu";
 
-const NAV = [
+const NAV: NavLink[] = [
   { href: "/overview", label: "Overview" },
   { href: "/events", label: "Events" },
   { href: "/funnels", label: "Funnels" },
@@ -15,7 +16,7 @@ const NAV = [
   { href: "/journeys", label: "Journeys" },
   { href: "/people", label: "People" },
   { href: "/sites", label: "Sites" },
-  { href: "/settings", label: "Settings" },
+  { href: "/settings", label: "Settings", also: ["/keys"] },
 ];
 
 /** Which workspace this is and the way to another. With nothing else to reach, there's nothing to choose and nothing shows. */
@@ -42,19 +43,16 @@ async function WhoIsSignedIn() {
 /** The frame of the app's pages: the mark, what's reachable, who is signed in. */
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="relative isolate flex min-h-full flex-1 flex-col">
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-96 bg-glow" />
-      <header className="border-b">
+    <div className="flex min-h-full flex-1 flex-col">
+      <header className="sticky top-0 z-30 border-b bg-background">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-2 px-4 py-3">
-          <Link href="/overview" aria-label="Overview">
-            <Logo id="header" />
+          <Link href="/overview" aria-label="Overview" className="rounded-sm">
+            <Logo />
           </Link>
-          <nav className="order-last flex w-full flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground sm:order-none sm:w-auto sm:flex-1">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="transition-colors hover:text-foreground">
-                {item.label}
-              </Link>
-            ))}
+          <nav aria-label="Main" className="order-last flex w-full flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground lg:order-none lg:w-auto lg:flex-1">
+            <Suspense fallback={<PlainNavLinks links={NAV} />}>
+              <NavLinks links={NAV} />
+            </Suspense>
           </nav>
           <Suspense>
             <WhoIsSignedIn />
@@ -70,13 +68,13 @@ export function Shell({ children }: { children: ReactNode }) {
 export function PageHeading({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="mb-8">
-      <h1 className="text-3xl font-semibold tracking-[-0.04em] md:text-4xl">{title}</h1>
-      {children && <p className="mt-3 max-w-2xl text-muted-foreground">{children}</p>}
+      <h1 className="text-3xl font-bold tracking-[-0.03em] md:text-4xl">{title}</h1>
+      {children && <p className="mt-2 max-w-2xl text-muted-foreground">{children}</p>}
     </div>
   );
 }
 
 /** Quiet placeholder while the server reads the workspace. */
 export function Loading() {
-  return <p className="font-mono text-xs text-muted-foreground">Loading…</p>;
+  return <p role="status" className="font-mono text-xs text-muted-foreground">Loading…</p>;
 }

@@ -1,64 +1,57 @@
 /*
  * ─────────────────────────────────────────────────────────────────────────────
- *  THEME
+ *  THEME: the signpost
  * ─────────────────────────────────────────────────────────────────────────────
  *
- *  Three palettes:
- *   • brand    a quiet teal kept low in chroma, for links, focus and what's fine;
- *   • warm     the one warm point on a page, for what needs a look; never a surface;
- *   • base     blue-black neutrals, dark first.
- *  Actions are monochrome (white on dark, dark on white), so colour is left to what it
- *  says. Components use the semantic tokens below or the brand, warm and base scales,
- *  never raw palette classes.
+ *  A hiking map printed on white: granite contour lines and a red dashed footpath.
+ *   • brand (blaze)  vermilion, the trail and the sign: a line, a mark, what to look at;
+ *   • base (granite) warm-grey neutrals, near white to warm graphite.
+ *  Actions and data are ink, so red stays the trail: never the button, never an alarm.
+ *  Alarms are amber, destructive a deeper crimson. Light first; dark follows the system.
+ *  Components use the semantic tokens below or the brand and base scales, never raw palette classes.
  */
 
 :root {
+  color-scheme: light dark;
+
   /* 1. Palettes ------------------------------------------------------------ */
-  --brand-50: oklch(97.8% 0.008 195);
-  --brand-100: oklch(95% 0.016 195);
-  --brand-200: oklch(90.5% 0.03 195);
-  --brand-300: oklch(85% 0.048 195);
-  --brand-400: oklch(77% 0.068 195);
-  --brand-500: oklch(67.5% 0.085 195);
-  --brand-600: oklch(56.5% 0.09 195);
-  --brand-700: oklch(47.5% 0.08 195);
-  --brand-800: oklch(39.5% 0.065 195);
-  --brand-900: oklch(32% 0.05 195);
-  --brand-950: oklch(23.5% 0.035 195);
+  --brand-50: oklch(97.2% 0.014 35);
+  --brand-100: oklch(94% 0.032 35);
+  --brand-200: oklch(88.5% 0.068 35);
+  --brand-300: oklch(80% 0.122 35);
+  --brand-400: oklch(71% 0.172 34);
+  --brand-500: oklch(64% 0.205 33);
+  --brand-600: oklch(57% 0.205 32);
+  --brand-700: oklch(48.5% 0.175 31);
+  --brand-800: oklch(39.5% 0.135 30);
+  --brand-900: oklch(31.5% 0.1 30);
+  --brand-950: oklch(22% 0.07 30);
 
-  --warm-300: oklch(87% 0.075 62);
-  --warm-400: oklch(79% 0.125 58);
-  --warm-500: oklch(72% 0.15 52);
-  --warm-600: oklch(62% 0.16 45);
+  --base-50: oklch(98.6% 0.002 85);
+  --base-100: oklch(96.6% 0.003 85);
+  --base-200: oklch(92.4% 0.004 80);
+  --base-300: oklch(86.5% 0.005 80);
+  --base-400: oklch(71% 0.007 75);
+  --base-500: oklch(52% 0.008 70);
+  --base-600: oklch(43.5% 0.008 65);
+  --base-700: oklch(35.5% 0.008 60);
+  --base-800: oklch(26.5% 0.007 60);
+  --base-900: oklch(19.5% 0.006 60);
+  --base-950: oklch(15% 0.005 60);
 
-  --base-50: oklch(98.4% 0.003 255);
-  --base-100: oklch(96.4% 0.005 255);
-  --base-200: oklch(92.2% 0.008 256);
-  --base-300: oklch(86.5% 0.012 257);
-  --base-400: oklch(70.5% 0.018 258);
-  --base-500: oklch(55.5% 0.021 259);
-  --base-600: oklch(44.5% 0.021 261);
-  --base-700: oklch(35% 0.02 263);
-  --base-800: oklch(25.5% 0.018 265);
-  --base-900: oklch(17.5% 0.016 266);
-  --base-950: oklch(12.5% 0.014 268);
+  /* Shape */
+  --radius: 0.5rem;
 
-  /* Shape, layout & type */
-  --radius: 0.75rem;
-  /* Max width of `.container` (header, pages, footer). */
-  --content-width: 76rem;
-  --font-features: "ss01", "ss02";
-
-  /* 2. Semantic tokens — light --------------------------------------------- */
-  --background: oklch(100% 0 0);
+  /* 2. Semantic tokens: light ---------------------------------------------- */
+  --background: oklch(99% 0.0015 85);
   --foreground: var(--base-950);
-  --surface: var(--base-50);
+  --surface: var(--base-100);
   --card: oklch(100% 0 0);
   --card-foreground: var(--base-950);
   --popover: oklch(100% 0 0);
   --popover-foreground: var(--base-950);
 
-  /* Actions are monochrome; the brand colour is for links and focus. */
+  /* Actions are ink; the brand colour is for the trail. */
   --primary: var(--base-950);
   --primary-foreground: var(--base-50);
   --secondary: var(--base-100);
@@ -69,79 +62,54 @@
   --accent-foreground: var(--base-900);
 
   --link: var(--brand-700);
-  /* What is fine and what needs a look (darker in light mode, for contrast). */
-  --calm: var(--brand-600);
-  --alert: var(--warm-600);
-  /* The accent words of a heading, lit from above; the mark's arc, from its tail to its bead. */
-  --sheen-top: var(--base-900);
-  --sheen-bottom: var(--brand-600);
-  --mark-from: var(--base-400);
-  --mark-to: var(--base-950);
-
-  --destructive: oklch(57.7% 0.245 27.325);
-  --success: oklch(59.6% 0.145 163.225);
-  --warning: var(--warm-500);
-  --info: var(--brand-600);
+  /* The trail, in text and on marks. */
+  --blaze: var(--brand-600);
+  --mark-plate: var(--brand-500);
+  /* What figures are drawn in. */
+  --data: var(--base-800);
+  /* What is fine, and what needs a look. */
+  --calm: oklch(47% 0.09 160);
+  --alert: oklch(52% 0.12 65);
+  --destructive: oklch(50% 0.19 20);
 
   --border: var(--base-200);
-  --input: var(--base-200);
+  --input: var(--base-300);
   --ring: var(--brand-500);
-
-  --chart-1: var(--brand-500);
-  --chart-2: var(--brand-300);
-  --chart-3: var(--warm-500);
-  --chart-4: var(--base-400);
-  --chart-5: var(--warm-300);
-
-  --sidebar: var(--base-50);
-  --sidebar-foreground: var(--base-950);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--base-100);
-  --sidebar-accent-foreground: var(--base-900);
-  --sidebar-border: var(--base-200);
-  --sidebar-ring: var(--ring);
+  /* The contour lines behind a page's first screen. */
+  --contour: var(--base-300);
 }
 
-/* 2b. Semantic tokens — dark (the default) --------------------------------- */
-.dark {
-  --background: oklch(10% 0.01 266);
-  --foreground: var(--base-50);
-  --surface: oklch(12.2% 0.011 266);
-  --card: oklch(13.6% 0.012 266);
-  --card-foreground: var(--base-50);
-  --popover: oklch(15.5% 0.015 266);
-  --popover-foreground: var(--base-50);
+/* 2b. Semantic tokens: dark, warm graphite ---------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(17% 0.005 60);
+    --foreground: var(--base-50);
+    --surface: oklch(19% 0.006 60);
+    --card: oklch(20.5% 0.006 60);
+    --card-foreground: var(--base-50);
+    --popover: oklch(23% 0.007 60);
+    --popover-foreground: var(--base-50);
 
-  --primary: var(--base-50);
-  --primary-foreground: var(--base-950);
-  --secondary: oklch(20% 0.016 266);
-  --secondary-foreground: var(--base-50);
-  --muted: oklch(20% 0.016 266);
-  --muted-foreground: var(--base-400);
-  --accent: oklch(20% 0.016 266);
-  --accent-foreground: var(--base-50);
+    --primary: var(--base-50);
+    --primary-foreground: var(--base-950);
+    --secondary: oklch(25% 0.007 60);
+    --secondary-foreground: var(--base-50);
+    --muted: oklch(25% 0.007 60);
+    --muted-foreground: var(--base-400);
+    --accent: oklch(25% 0.007 60);
+    --accent-foreground: var(--base-50);
 
-  --link: var(--brand-200);
-  --calm: var(--brand-300);
-  --alert: var(--warm-400);
-  --sheen-top: var(--brand-50);
-  --sheen-bottom: var(--brand-400);
-  --mark-from: var(--brand-600);
-  --mark-to: var(--brand-100);
+    --link: var(--brand-300);
+    --blaze: var(--brand-400);
+    --mark-plate: var(--brand-500);
+    --data: var(--base-300);
+    --calm: oklch(78% 0.11 160);
+    --alert: oklch(80% 0.14 75);
+    --destructive: oklch(70% 0.17 22);
 
-  --destructive: oklch(70.4% 0.191 22.216);
-  --success: oklch(76.5% 0.177 163.223);
-  --warning: var(--warm-400);
-  --info: var(--brand-300);
-
-  --border: oklch(1 0 0 / 7.5%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: var(--brand-400);
-
-  --sidebar: oklch(13.2% 0.013 266);
-  --sidebar-foreground: var(--base-50);
-  --sidebar-accent: oklch(20% 0.016 266);
-  --sidebar-accent-foreground: var(--base-50);
-  --sidebar-border: oklch(1 0 0 / 8%);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: var(--brand-400);
+    --contour: oklch(1 0 0 / 9%);
+  }
 }

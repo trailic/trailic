@@ -33,7 +33,7 @@ function Setup({ site, mayChange }: { site: SiteRow; mayChange: boolean }) {
   const relayKey = settings.TRAILIC_SECRET ? relayKeyOf(site.id, settings.TRAILIC_SECRET) : null;
   return (
     <Card>
-      <h2 className="font-semibold tracking-[-0.02em]">Setup</h2>
+      <h2 className="font-semibold">Setup</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Install it with <span className="font-mono text-xs">npm install trailic</span>, then:
       </p>
@@ -63,7 +63,7 @@ function Setup({ site, mayChange }: { site: SiteRow; mayChange: boolean }) {
 function Settings({ site }: { site: SiteRow }) {
   return (
     <Card>
-      <h2 className="font-semibold tracking-[-0.02em]">Settings</h2>
+      <h2 className="font-semibold">Settings</h2>
       <div className="mt-3">
         <ActionForm action={updateSiteAction.bind(null, site.id)} submit="Save" busy="…">
           <Labelled label="Name">

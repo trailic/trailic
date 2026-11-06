@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Suspense } from "react";
+import { NavLinks, PlainNavLinks } from "./nav-links";
 
 const SECTIONS = [
   { href: "/settings", label: "Workspace" },
@@ -8,12 +9,10 @@ const SECTIONS = [
 /** The settings' sections, the same at the top of each. */
 export function SettingsNav() {
   return (
-    <nav aria-label="Settings" className="mb-8 flex flex-wrap gap-x-4 gap-y-1 border-b pb-3 text-sm text-muted-foreground">
-      {SECTIONS.map((section) => (
-        <Link key={section.href} href={section.href} className="transition-colors hover:text-foreground">
-          {section.label}
-        </Link>
-      ))}
+    <nav aria-label="Settings" className="mb-8 flex flex-wrap gap-x-5 gap-y-1 border-b pb-3 text-sm text-muted-foreground">
+      <Suspense fallback={<PlainNavLinks links={SECTIONS} />}>
+        <NavLinks links={SECTIONS} />
+      </Suspense>
     </nav>
   );
 }

@@ -5,7 +5,7 @@ import { peopleOf } from "@/application/people";
 import { sitesOf } from "@/application/sites";
 import { chosenSite, NoSitesYet, oneOf, SiteAndPeriod, type Query } from "@/components/reading";
 import { Loading, PageHeading, Shell } from "@/components/shell";
-import { Card, INLINE_FIELD } from "@/components/ui";
+import { EmptyState, INLINE_FIELD, ROWS } from "@/components/ui";
 import { when } from "@/components/when";
 import { currentSeat } from "@/infrastructure/auth/session";
 import { db } from "@/infrastructure/db/client";
@@ -31,9 +31,9 @@ async function Content({ searchParams }: { searchParams: Promise<Query> }) {
         <input name="q" defaultValue={search} placeholder="Find by id" aria-label="Find by id" className={`${INLINE_FIELD} min-w-48`} />
       </SiteAndPeriod>
       {people.length === 0 ? (
-        <Card className="max-w-2xl text-sm text-muted-foreground">{search ? "Nobody by that id." : "Nobody identified yet. Someone appears here once the site calls identify."}</Card>
+        <EmptyState className="max-w-2xl">{search ? "Nobody by that id." : "Nobody identified yet. Someone appears here once the site calls identify."}</EmptyState>
       ) : (
-        <ul className="divide-y rounded-2xl border bg-card">
+        <ul className={ROWS}>
           {people.map(({ userId, traits, lastSeenAt, firstSeenAt }) => (
             <li key={userId} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3 text-sm">
               <Link href={`/people/${site.id}/${encodeURIComponent(userId)}`} className="font-medium hover:underline">

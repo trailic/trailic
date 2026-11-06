@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { apiKeysOf } from "@/application/api-keys";
 import { Loading, PageHeading, Shell } from "@/components/shell";
 import { SettingsNav } from "@/components/settings-nav";
-import { Card, Code, QuietButton } from "@/components/ui";
+import { Card, Code, QuietButton, ROWS } from "@/components/ui";
 import { when } from "@/components/when";
 import { SCOPE_NAMES, type ApiScope } from "@/domain/api-scopes";
 import { managesSettings } from "@/domain/team";
@@ -30,7 +30,7 @@ async function Keys() {
         </div>
       </Card>
       {keys.length > 0 && (
-        <ul className="divide-y rounded-2xl border bg-card">
+        <ul className={ROWS}>
           {keys.map((key) => (
             <li key={key.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 text-sm">
               <span className="font-medium">{key.name}</span>

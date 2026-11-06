@@ -18,22 +18,24 @@ import { deleteFunnelAction } from "../actions";
 
 export const metadata: Metadata = { title: "Funnel" };
 
-function Step({ result, index }: { result: FunnelStepResult; index: number }) {
+/** A step on the way: a numbered waypoint on the dashed path the funnel follows, its bar, and how many stopped here. */
+function Step({ result, index, last }: { result: FunnelStepResult; index: number; last: boolean }) {
   return (
-    <li data-step={index + 1}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
-        <span className="min-w-0 truncate">
-          <span className="mr-2 font-mono text-xs text-muted-foreground">{index + 1}</span>
-          {stepLabel(result.step)}
-        </span>
-        <span className="font-mono text-xs">
-          <span data-people className="text-foreground">{formatted(result.people)}</span> <span className="text-muted-foreground">{counted(result.people, "person", "people")} · {percent(result.conversion)}</span>
-        </span>
+    <li data-step={index + 1} className="relative flex gap-4 pb-6 last:pb-0">
+      {!last && <span aria-hidden className="absolute top-7 bottom-0 left-[0.8125rem] border-l-2 border-dashed border-blaze/60" />}
+      <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-xs font-medium text-primary-foreground">{index + 1}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
+          <span className="min-w-0 truncate font-medium">{stepLabel(result.step)}</span>
+          <span className="font-mono text-xs">
+            <span data-people className="font-medium text-foreground">{formatted(result.people)}</span> <span className="text-muted-foreground">{counted(result.people, "person", "people")} · {percent(result.conversion)}</span>
+          </span>
+        </div>
+        <div className="mt-1.5 h-5 rounded-sm bg-muted">
+          <div className="h-full rounded-sm bg-data" style={{ width: `${result.conversion * 100}%` }} />
+        </div>
+        {index > 0 && <p className="mt-1.5 text-xs text-blaze">{percent(result.dropOff)} dropped off here</p>}
       </div>
-      <div className="mt-1 h-6 rounded-md bg-muted">
-        <div className="h-full rounded-md bg-calm" style={{ width: `${result.conversion * 100}%` }} />
-      </div>
-      {index > 0 && <p className="mt-1 text-xs text-muted-foreground">{percent(result.dropOff)} dropped off here</p>}
     </li>
   );
 }
@@ -57,9 +59,9 @@ async function Content({ params, searchParams }: { params: PageProps<"/funnels/[
         <QuietButton type="submit">Show</QuietButton>
       </form>
       <Card className="max-w-3xl">
-        <ol className="space-y-5">
+        <ol>
           {report.steps.map((result, index) => (
-            <Step key={index} result={result} index={index} />
+            <Step key={index} result={result} index={index} last={index === report.steps.length - 1} />
           ))}
         </ol>
       </Card>

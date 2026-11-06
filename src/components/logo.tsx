@@ -1,28 +1,21 @@
-import { BRAND_SLUG } from "@/domain/brand";
+import { BRAND } from "@/domain/brand";
 
-/** The mark: an open arc that ends on a warm bead. */
-export function LogoMark({ id = "mark", className = "size-7" }: { id?: string; className?: string }) {
-  const gradient = `mark-${id}`;
+/** The mark: a lowercase t that is a signpost. The stem is the path, hooking away at its foot; the crossbar is a pointed sign. */
+export function LogoMark({ className = "size-7" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden className={`shrink-0 ${className}`}>
-      <defs>
-        <linearGradient id={gradient} gradientUnits="userSpaceOnUse" x1={9} y1={24} x2={23} y2={8}>
-          <stop offset="0" style={{ stopColor: "var(--mark-from)" }} />
-          <stop offset="1" style={{ stopColor: "var(--mark-to)" }} />
-        </linearGradient>
-      </defs>
-      <path d="M22.4 21.4A8.6 8.6 0 1 1 22.4 10.6" fill="none" stroke={`url(#${gradient})`} strokeWidth={3.2} strokeLinecap="round" />
-      <circle cx={22.4} cy={10.6} r={2.7} className="fill-alert" />
+      <path d="M13 4.5V21.5c0 3.7 2.3 6 6 6h2.5" fill="none" strokeWidth={3.6} strokeLinecap="round" className="stroke-foreground" />
+      <path d="M6 9h16l4.5 4.2L22 17.4H6c-.8 0-1.5-.7-1.5-1.5v-5.4C4.5 9.7 5.2 9 6 9Z" className="fill-mark-plate" />
     </svg>
   );
 }
 
-/** Mark and wordmark, in lowercase, tight. */
-export function Logo({ id }: { id?: string }) {
+/** Mark and wordmark, set in the signage face, tight. */
+export function Logo() {
   return (
-    <span className="inline-flex min-w-0 items-center gap-2">
-      <LogoMark id={id} />
-      <span className="truncate font-heading text-[1.1rem] font-semibold tracking-[-0.045em]">{BRAND_SLUG}</span>
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <LogoMark />
+      <span className="translate-y-px truncate font-heading text-[1.2rem] leading-none font-bold tracking-[-0.03em]">{BRAND}</span>
     </span>
   );
 }

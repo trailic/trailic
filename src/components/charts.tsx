@@ -14,7 +14,8 @@ export interface DayValue {
 }
 
 /**
- * One measure over days, as columns growing from one baseline. Each column's whole height answers
+ * One measure over days, as columns growing from one baseline, with the busiest day, which the scale reads, in
+ * the trail's colour. Each column's whole height answers
  * the pointer, since a quiet day's mark is too small to aim at, and the numbers are one click away as
  * a table, so nothing depends on seeing the chart.
  */
@@ -30,7 +31,7 @@ export function DayColumns({ days, measure }: { days: DayValue[]; measure: strin
         <div className="flex min-w-0 flex-1 items-end gap-0.5">
           {days.map(({ date, value }) => (
             <div key={date} tabIndex={0} aria-label={`${dayLabel(date)}: ${formatted(value)}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center outline-none">
-              <div className="w-full max-w-6 rounded-t-[4px] bg-calm" style={{ height: `${(value / most) * 100}%` }} />
+              <div className={`w-full max-w-6 rounded-t-[3px] transition-colors group-hover:bg-blaze group-focus:bg-blaze ${value === most ? "bg-blaze" : "bg-data"}`} style={{ height: `${(value / most) * 100}%` }} />
               <span className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground group-hover:block group-focus:block">
                 {dayLabel(date)}: <span className="font-mono">{formatted(value)}</span>
               </span>
@@ -65,7 +66,7 @@ export function MiniColumns({ days }: { days: DayValue[] }) {
   return (
     <span aria-hidden className="flex h-6 w-28 shrink-0 items-end gap-px">
       {days.map(({ date, value }) => (
-        <span key={date} title={`${dayLabel(date)}: ${formatted(value)}`} className="min-w-0 flex-1 rounded-t-[2px] bg-calm" style={{ height: value === 0 ? "1px" : `${(value / most) * 100}%`, opacity: value === 0 ? 0.25 : 1 }} />
+        <span key={date} title={`${dayLabel(date)}: ${formatted(value)}`} className="min-w-0 flex-1 rounded-t-[2px] bg-data" style={{ height: value === 0 ? "1px" : `${(value / most) * 100}%`, opacity: value === 0 ? 0.25 : 1 }} />
       ))}
     </span>
   );
@@ -77,7 +78,7 @@ export function TopList({ title, rows, countName = "views", empty = "Nothing yet
   return (
     <div className="min-w-0">
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-[-0.02em]">{title}</h2>
+        <h2 className="text-sm font-semibold tracking-normal">{title}</h2>
         {rows.length > 0 && (
           <span className="font-mono text-[11px] text-muted-foreground">
             {countName} · visitors
@@ -90,13 +91,13 @@ export function TopList({ title, rows, countName = "views", empty = "Nothing yet
         <ul className="space-y-1">
           {rows.map((row) => (
             <li key={`${row.siteName ?? ""}${row.value}`} title={`${row.value}: ${formatted(row.count)} ${countName}, ${formatted(row.visitors)} visitors`} className="relative flex items-center justify-between gap-3 rounded-md px-2 py-1 text-sm">
-              <span aria-hidden className="absolute inset-y-0 left-0 rounded-md bg-calm/15" style={{ width: `${(row.count / most) * 100}%` }} />
+              <span aria-hidden className="absolute inset-y-0 left-0 rounded-md bg-data/8" style={{ width: `${(row.count / most) * 100}%` }} />
               <span className="relative min-w-0 truncate">
                 {row.value}
                 {row.siteName && <span className="ml-2 text-xs text-muted-foreground">{row.siteName}</span>}
               </span>
               <span className="relative shrink-0 font-mono text-xs text-muted-foreground">
-                <span className="text-foreground">{formatted(row.count)}</span> · {formatted(row.visitors)}
+                <span className="font-medium text-foreground">{formatted(row.count)}</span> · {formatted(row.visitors)}
               </span>
             </li>
           ))}
