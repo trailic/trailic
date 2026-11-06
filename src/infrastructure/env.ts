@@ -8,6 +8,8 @@ const schema = z.object({
   TRAILIC_DATABASE_URL: z.url(),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url(),
+  /** Where pages send events, when that isn't the instance's own address. Only the collector answers there. */
+  TRAILIC_COLLECTOR_URL: z.url().optional(),
   /** Who may sign up and start workspaces: comma-separated emails. Anyone else needs an invitation, and can only join. */
   TRAILIC_ADMINS: z.string().default(""),
   /** Signs site keys and derives each day's visitor salt. Changing it ends every site key in every project. */
@@ -47,6 +49,14 @@ export function env(): Env {
   parsed ??= schema.parse(withoutBlanks(process.env));
   return parsed;
 }
+
+type CollectorSettings = Pick<Env, "BETTER_AUTH_URL" | "TRAILIC_COLLECTOR_URL">;
+
+/** The address a site's pages see, and through it a visitor: its own when the instance has one, or the instance's. */
+export const collectorOrigin = (settings: CollectorSettings) => settings.TRAILIC_COLLECTOR_URL ?? settings.BETTER_AUTH_URL;
+
+/** What a site's `endpoint` says. */
+export const collectorEndpoint = (settings: CollectorSettings) => new URL("/api/e", collectorOrigin(settings)).toString();
 
 /** Whether this email may sign up without an invitation and start workspaces. */
 export function isAdmin(email: string, settings: Pick<Env, "TRAILIC_ADMINS"> = env()): boolean {

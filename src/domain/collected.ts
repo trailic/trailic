@@ -118,6 +118,9 @@ export function pathAndCampaign(rawPath: string | undefined): { path: string | n
   return fields;
 }
 
+/** What anonymous mode lets through of an event: nothing that follows someone or says which campaign brought them. */
+export const anonymised = (event: CollectedEvent): CollectedEvent => ({ ...event, userId: null, traits: null, utmSource: null, utmMedium: null, utmCampaign: null, utmTerm: null, utmContent: null });
+
 /** Where they came from: the host only, and nothing when that's the site itself. */
 export function referrerHost(referrer: string | undefined, originHost: string | null): string | null {
   if (!referrer) return null;

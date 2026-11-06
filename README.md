@@ -6,8 +6,8 @@ What people do on your Next.js sites: page views, custom events, funnels, retent
 
 ## What works today
 
-- **The library** (`packages/trailic`): `<Trailic siteKey endpoint />` for the App Router counts page views and route changes. `track`, `identify`, `reset`, `setConsent` and a server-side `trackServer`. No dependency beyond React, about 1.5 KB gzipped, and no effect on rendering if the collector is down.
-- **Privacy by default**: no cookies, and nothing in storage before `identify`. Anonymous visitors are counted by a daily-rotating salted hash of address and browser, computed server-side, and the address is never stored. Query strings are dropped except `utm_*`, and emails and long tokens are taken out of paths.
+- **The library** (`packages/trailic`): `<Trailic siteKey endpoint />` for the App Router counts page views and route changes. `track`, `identify`, `reset`, `setConsent`, `optOut` and a server-side `trackServer`. No dependency beyond React, about 1.5 KB gzipped, and no effect on rendering if the collector is down.
+- **Privacy by default**: no cookies, and nothing in storage before `identify` or a visitor objecting. Anonymous mode, per site and on by default, shortens the address before hashing it, keeps no UTM tags and refuses `identify`. Anonymous visitors are counted by a daily-rotating salted hash of address and browser, computed server-side, and the address is never stored. Query strings are dropped except `utm_*`, and emails and long tokens are taken out of paths.
 - **Collecting**: `POST /api/e` with a public site key, checks on the site's domains, payload limits, rate limits and a bot filter. An event never touches the database: at most, a directory of sites is read once a day to refresh a cache.
 - **Buffering**: events wait in Vercel Queues, or a folder on a server of your own, and reach Postgres in batches once an hour, so the database can sleep. A failed write loses nothing and a repeated one counts nothing twice.
 - **Storing**: raw events partitioned by month, with retention per site, and daily rollups that stay for good. Row-level security on every table and every partition.
@@ -23,7 +23,8 @@ What isn't there yet is listed in [section 9 of the spec](docs/00-product.md#9-p
 Add a site in the app, then in your project:
 
 ```bash
-npm install trailic
+# Until it's on npm, from its release
+npm install https://github.com/trailic/trailic/releases/download/v0.1.1/trailic-0.1.1.tgz
 ```
 
 ```tsx
@@ -91,7 +92,8 @@ Elsewhere than Vercel:
 | `TRAILIC_DATABASE_URL` | yes | Postgres. The role must be able to create tables: raw events get a new partition each month. |
 | `TRAILIC_DATABASE_URL_UNPOOLED` | no | The direct address, used by `pnpm db:migrate` when the main one goes through a pooler. |
 | `BETTER_AUTH_SECRET` | yes | At least 32 characters (`openssl rand -base64 32`). Signs sessions: changing it signs everyone out. |
-| `BETTER_AUTH_URL` | yes | The instance's public address. Snippets and assistants' tokens are built from it. |
+| `BETTER_AUTH_URL` | yes | The instance's public address. Assistants' tokens are built from it, and snippets too unless the next one is set. |
+| `TRAILIC_COLLECTOR_URL` | no | An address of its own for the collector, pointing at this same app, so that what a site's pages name says nothing about whose instance it is. Snippets and `create_site` use it, and only `/api/e` answers there. Set it before the build: it decides routing. |
 | `TRAILIC_SECRET` | to collect | At least 32 characters (`openssl rand -base64 32`). Signs site keys and derives each day's visitor salt. Changing it ends every site key in every project, and makes every visitor new for the rest of that day. |
 | `TRAILIC_ADMINS` | yes, to get started | Comma-separated addresses that may sign up and start workspaces. Anyone else joins by invitation, from a workspace's settings. |
 | `TRAILIC_BUFFER` | no | `vercel-queue` or `file`. Left out: Vercel Queues on Vercel, a folder elsewhere. |

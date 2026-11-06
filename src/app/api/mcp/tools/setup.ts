@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createSite, NO_SECRET } from "@/application/sites";
 import { relayKeyOf } from "@/infrastructure/crypto/site-key";
+import { LIBRARY_INSTALL } from "@/domain/library";
+import { collectorEndpoint, collectorOrigin } from "@/infrastructure/env";
 import { sitesChanged } from "@/infrastructure/scheduling/scheduled-work";
 import { answer, appUrl, refusal, type ToolRegistrar } from "./tool";
 
@@ -28,9 +30,8 @@ export const siteSetupTools: ToolRegistrar = (server, context) => {
       const made = await createSite(services.db, secret, workspaceId, userId, { name, domains });
       if (!made.ok) return refusal(made.error);
       sitesChanged();
-      const instance = services.settings.BETTER_AUTH_URL;
       return answer(
-        { siteId: made.id, siteKey: made.key, collector: new URL("/api/e", instance).toString(), relay: { TRAILIC_URL: instance, TRAILIC_RELAY_KEY: relayKeyOf(made.id, secret) }, url: appUrl(context, `/sites/${made.id}`) },
+        { siteId: made.id, siteKey: made.key, install: LIBRARY_INSTALL, collector: collectorEndpoint(services.settings), relay: { TRAILIC_URL: collectorOrigin(services.settings), TRAILIC_RELAY_KEY: relayKeyOf(made.id, secret) }, url: appUrl(context, `/sites/${made.id}`) },
         "The site key is public: it goes in the page. The relay key is secret: it goes in the project’s environment and nowhere else, so don’t repeat it to anyone.",
       );
     },

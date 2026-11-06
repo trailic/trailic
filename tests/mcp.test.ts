@@ -97,10 +97,11 @@ describe("adding a site", () => {
     revalidateTag.mockClear();
     const { structuredContent: made } = await callTool(call, "create_site", { name: "Shop", domains: "shop.example" });
     expect(siteIdOfKey(made.siteKey, SECRET)).toBe(made.siteId);
+    expect(made.install).toContain("trailic-0.1.1.tgz");
     expect(made).toMatchObject({ collector: "https://trailic.test/api/e", relay: { TRAILIC_URL: "https://trailic.test", TRAILIC_RELAY_KEY: relayKeyOf(made.siteId, SECRET) }, url: `https://trailic.test/sites/${made.siteId}` });
     expect(revalidateTag).toHaveBeenCalledWith(SITES_TAG, { expire: 0 });
     const { structuredContent } = await callTool(call, "list_sites");
-    expect(structuredContent.sites.find(({ id }: { id: string }) => id === made.siteId)).toMatchObject({ name: "Shop", domains: ["shop.example"] });
+    expect(structuredContent.sites.find(({ id }: { id: string }) => id === made.siteId)).toMatchObject({ name: "Shop", domains: ["shop.example"], anonymous: true });
   });
 
   it("refuses someone who doesn't manage the workspace's settings, as the screen does", async () => {

@@ -29,6 +29,13 @@ export async function updateSiteAction(siteId: string, _previous: Tried | null, 
   return updated;
 }
 
+export async function setAnonymousAction(siteId: string, anonymous: boolean): Promise<void> {
+  const seat = await currentSeat();
+  const updated = await updateSite(db(), seat.workspaceId, seat.userId, siteId, { anonymous });
+  if (updated.ok) sitesChanged();
+  revalidatePath(`/sites/${siteId}`);
+}
+
 export async function rotateKeyAction(siteId: string): Promise<void> {
   const seat = await currentSeat();
   const secret = env().TRAILIC_SECRET;

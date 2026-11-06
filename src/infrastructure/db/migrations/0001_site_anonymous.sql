@@ -1,0 +1,1 @@
+ALTER TABLE "site" ADD COLUMN "anonymous" boolean DEFAULT true NOT NULL;

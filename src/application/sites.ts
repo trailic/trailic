@@ -56,6 +56,7 @@ export interface SiteChanges {
   name?: string;
   domains?: string;
   retentionDays?: unknown;
+  anonymous?: boolean;
 }
 
 export async function updateSite(db: Database, workspaceId: string, userId: string, siteId: string, changes: SiteChanges): Promise<Tried> {
@@ -67,7 +68,7 @@ export async function updateSite(db: Database, workspaceId: string, userId: stri
   const updated = await withWorkspace(db, workspaceId, (tx) =>
     tx
       .update(site)
-      .set({ ...(changes.name?.trim() ? { name: changes.name.trim().slice(0, NAME_LENGTH) } : {}), ...(parsed ? { allowedDomains: parsed.domains } : {}), ...(retentionDays ? { retentionDays } : {}) })
+      .set({ ...(changes.name?.trim() ? { name: changes.name.trim().slice(0, NAME_LENGTH) } : {}), ...(parsed ? { allowedDomains: parsed.domains } : {}), ...(retentionDays ? { retentionDays } : {}), ...(changes.anonymous === undefined ? {} : { anonymous: changes.anonymous }) })
       .where(eq(site.id, siteId))
       .returning({ id: site.id }),
   );
@@ -92,8 +93,9 @@ export interface DirectoryEntry {
   siteId: string;
   key: string;
   allowedDomains: string[];
+  anonymous: boolean;
 }
 
 /** What the collector needs to know about every site, across all workspaces. Trusted path: it only ever says who may send. */
-export const collectorDirectory = (db: Database): Promise<DirectoryEntry[]> => db.select({ siteId: site.id, key: site.publicKey, allowedDomains: site.allowedDomains }).from(site);
+export const collectorDirectory = (db: Database): Promise<DirectoryEntry[]> => db.select({ siteId: site.id, key: site.publicKey, allowedDomains: site.allowedDomains, anonymous: site.anonymous }).from(site);
 

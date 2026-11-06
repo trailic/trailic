@@ -28,6 +28,8 @@ All days are UTC.
 | `identify(userId, traits)` | Who this is from here on. Only when a project calls it, typically after sign-in. |
 | `reset()` | Forgets them, typically at sign-out. |
 | `setConsent(granted)` | The same as the `consent` prop, from anywhere. |
+| `optOut()`, `optIn()`, `isOptedOut()` | The visitor objects, or takes it back. It's remembered in `localStorage` once they choose, and `<Trailic>` honours it on every page. |
+| `<TrailicOptOut stop resume />` | `trailic/opt-out`, a separate import: a button for a privacy page. |
 | `trackServer(name, props, options)` | `trailic/server`, for route handlers. It says whether the event was taken and never throws. |
 | `<TrailicVitals />` | `trailic/vitals`, optional and a separate import: LCP, CLS and INP. |
 | `trailicRewrite()`, `trailicRelay()` | `trailic/next`, to collect through the project's own domain. |
@@ -38,15 +40,19 @@ All days are UTC.
 
 ## 3. Privacy
 
-**What's collected.** The path of the page, with its query dropped except for `utm_*` tags, and emails and long tokens replaced by `[email]` and `[token]`. The referrer's host, on the first page of a load, unless it's the site itself. The events and traits the site sends. From the request: a country, a coarse device (desktop, mobile, tablet), browser and system, and the hash below.
+**What's collected.** The path of the page, with its query dropped except for `utm_*` tags on a site that isn't in anonymous mode, and emails and long tokens replaced by `[email]` and `[token]`. The referrer's host, on the first page of a load, unless it's the site itself. The events and traits the site sends. From the request: a country, a coarse device (desktop, mobile, tablet), browser and system, and the hash below.
 
-**What isn't.** No address is stored, anywhere: the buffer and the database never see it. No user agent is stored. No cookie is ever set. Nothing is kept in the browser until `identify`, which keeps the id it was given in `localStorage`, and `reset` removes it.
+**What isn't.** No address is stored, anywhere: the buffer and the database never see it. No user agent is stored. No cookie is ever set. Nothing is kept in the browser until `identify`, which keeps the id it was given in `localStorage`, and `reset` removes it, or until a visitor objects with `optOut`, which `optIn` removes.
 
 **The hash.** `sha256(salt, site, address, user agent)`, where the salt is derived from `TRAILIC_SECRET` and the day. So the same person is someone else tomorrow, and on another site. Everyone behind one address with the same browser is one visitor, which is a known undercount. Whoever holds `TRAILIC_SECRET` and knows someone's address and browser could work out that person's hash for any day: it stops anyone reading who visited from the database, not someone with the secret and a suspect.
 
 What follows from this: a visitor is one per site per day, so a period's visitors add its days up. Across sites, a workspace's visitors add its sites up. Only identified people can be followed from one day to the next. Retention counts only them, and someone anonymous can only convert in a funnel within a day.
 
-**Identifying.** What a visitor did in the half hour before `identify` becomes theirs, on the same hash, so a funnel that starts anonymous and ends signed in stays one person's. Two people behind one address with the same browser can be mixed up in that half hour. That's as far as a hash should be trusted, which is why it's no longer than that.
+**Anonymous mode.** A setting per site, on unless someone who manages the workspace's settings turns it off on the site's page. On, the collector shortens the address before hashing it (IPv4 to /24, IPv6 to /48), keeps no UTM tags, and refuses `identify`, dropping any user id or traits sent with an event. So more people count as one visitor, campaigns can't be measured, and funnels and retention that follow someone across days have nobody to follow. Off, for a site that needs those and has dealt with what that asks of it, the whole address goes into the hash and everything else below applies. When the collector can't tell which a site asked for, it assumes on, since what it keeps can't be taken back later. A change reaches the collector within a minute and rewrites nothing already collected. Figures are exact counts in both states, with no rounding: a known gap, since a page with very few visits can be told apart. This setting decides what's collected, and it says nothing about what law applies.
+
+**Identifying.** Only with anonymous mode off. What a visitor did in the half hour before `identify` becomes theirs, on the same hash, so a funnel that starts anonymous and ends signed in stays one person's. Two people behind one address with the same browser can be mixed up in that half hour. That's as far as a hash should be trusted, which is why it's no longer than that.
+
+**Objecting.** A visitor can opt out, through `optOut()` or the `<TrailicOptOut>` button on a privacy page. Nothing more leaves that browser, what was waiting goes, and what `identify` kept is removed. The choice stays in `localStorage` under `trailic.optOut`, and nothing is stored until they make it.
 
 **Choices for a site.** `consent={false}` holds everything in memory until it turns true; nothing is sent or stored before that. Withdrawing it removes what `identify` kept. `respectPrivacySignals` sends nothing for a browser saying Do Not Track or Global Privacy Control; it's off by default, because nothing here follows anyone across sites, but that's the site's decision.
 
@@ -59,6 +65,8 @@ What follows from this: a visitor is one per site per day, so a period's visitor
 ## 4. Collecting
 
 `POST /api/e`, as JSON in the body, from any browser or server.
+
+**The collector's own address.** A site's pages name the collector, in their code and in any Content-Security-Policy. With `TRAILIC_COLLECTOR_URL` set, they name that address instead of the instance's, on the site's page and from `create_site`, so what a visitor can read says that the site uses Trailic and nothing about whose instance it is. Only `/api/e` answers there: everything else gets an empty 404, so the address leads nowhere.
 
 ```json
 { "key": "site_…", "events": [{ "kind": "page", "path": "/pricing?utm_source=news", "referrer": "https://news.example/a", "ago": 120 }] }

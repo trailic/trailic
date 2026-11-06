@@ -6,7 +6,7 @@ vi.mock("next/cache", () => ({ cacheLife: () => {}, cacheTag: () => {}, revalida
 vi.mock("@/application/sites", () => ({ collectorDirectory: () => answers.next() }));
 vi.mock("@/infrastructure/db/client", () => ({ db: () => ({}) }));
 
-const SOME: DirectoryEntry[] = [{ siteId: "a", key: "k", allowedDomains: ["acme.example"] }];
+const SOME: DirectoryEntry[] = [{ siteId: "a", key: "k", allowedDomains: ["acme.example"], anonymous: true }];
 
 async function freshDirectory() {
   vi.resetModules();

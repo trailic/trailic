@@ -8,7 +8,7 @@ import { memoryBuffer, NOW, SECRET } from "./support/analytics";
 
 const SITE_ID = "11111111-2222-4333-8444-555555555555";
 const KEY = mintSiteKey(SITE_ID, SECRET);
-const DIRECTORY: DirectoryEntry[] = [{ siteId: SITE_ID, key: KEY, allowedDomains: ["acme.example"] }];
+const DIRECTORY: DirectoryEntry[] = [{ siteId: SITE_ID, key: KEY, allowedDomains: ["acme.example"], anonymous: false }];
 const FIREFOX = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0";
 const ADDRESS = "203.0.113.7";
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { date, index, integer, jsonb, pgEnum, pgTable, primaryKey, real, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, real, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { DEFAULT_RETENTION_DAYS } from "@/domain/sites";
 import { createdAt, tenantIsolation, updatedAt, workspaceColumn } from "./shared";
 import { workspace } from "./tenancy";
@@ -16,6 +16,8 @@ export const site = pgTable(
     publicKey: text().notNull().unique(),
     /** Hosts its pages may send from, subdomains included. */
     allowedDomains: text().array().notNull(),
+    /** Keeps less about each visitor (see domain/anonymous). On unless someone turns it off. */
+    anonymous: boolean().notNull().default(true),
     /** How long raw events stay; daily rollups stay for good. */
     retentionDays: integer().notNull().default(DEFAULT_RETENTION_DAYS),
     /** When events were last written to the database: dashboards say how old they are. */

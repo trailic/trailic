@@ -28,7 +28,7 @@ const kept = () => (shared.buffer as ReturnType<typeof memoryBuffer>).waiting.ma
 beforeEach(() => {
   shared.buffer = memoryBuffer();
   shared.secret = SECRET;
-  shared.directory = [{ siteId: SITE_ID, key: KEY, allowedDomains: ["acme.example"] }] satisfies DirectoryEntry[];
+  shared.directory = [{ siteId: SITE_ID, key: KEY, allowedDomains: ["acme.example"], anonymous: false }] satisfies DirectoryEntry[];
 });
 
 describe("POST /api/e", () => {

@@ -86,9 +86,23 @@ describe("a site", () => {
     const { workspaceId, userId } = await createTestWorkspace(db);
     const made = await createSite(db, SECRET, workspaceId, userId, INPUT);
     if (!made.ok) throw new Error(made.error);
-    expect(await collectorDirectory(db)).toContainEqual({ siteId: made.id, key: made.key, allowedDomains: ["shop.acme.example"] });
+    expect(await collectorDirectory(db)).toContainEqual({ siteId: made.id, key: made.key, allowedDomains: ["shop.acme.example"], anonymous: true });
     await deleteSite(db, workspaceId, userId, made.id);
     expect((await collectorDirectory(db)).map(({ siteId }) => siteId)).not.toContain(made.id);
+  });
+
+  it("starts in anonymous mode, which whoever manages settings can turn off and on, and the collector hears of it", async () => {
+    const { workspaceId, userId } = await createTestWorkspace(db);
+    const made = await createSite(db, SECRET, workspaceId, userId, INPUT);
+    if (!made.ok) throw new Error(made.error);
+    expect((await siteIn(db, workspaceId, made.id))?.anonymous).toBe(true);
+    expect(await updateSite(db, workspaceId, userId, made.id, { anonymous: false })).toMatchObject({ ok: true });
+    expect((await siteIn(db, workspaceId, made.id))?.anonymous).toBe(false);
+    expect((await collectorDirectory(db)).find(({ siteId }) => siteId === made.id)?.anonymous).toBe(false);
+    expect(await updateSite(db, workspaceId, userId, made.id, { name: "Renamed" })).toMatchObject({ ok: true });
+    expect((await siteIn(db, workspaceId, made.id))?.anonymous).toBe(false);
+    expect(await updateSite(db, workspaceId, userId, made.id, { anonymous: true })).toMatchObject({ ok: true });
+    expect((await siteIn(db, workspaceId, made.id))?.anonymous).toBe(true);
   });
 
   it("doesn't take a bad id to the database", async () => {

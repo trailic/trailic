@@ -1,4 +1,5 @@
-import { dayOf, happenedAt, LARGEST_BODY_BYTES, pathAndCampaign, referrerHost, WIRE_BATCH, wireEventsOf, type CollectedEvent, type WireEventParsed } from "@/domain/collected";
+import { shortenedAddress } from "@/domain/anonymous";
+import { anonymised, dayOf, happenedAt, LARGEST_BODY_BYTES, pathAndCampaign, referrerHost, WIRE_BATCH, wireEventsOf, type CollectedEvent, type WireEventParsed } from "@/domain/collected";
 import { RateWindow } from "@/domain/rate-window";
 import { hostAllowed, hostOf } from "@/domain/sites";
 import { coarseClient, isBot } from "@/domain/user-agent";
@@ -86,11 +87,11 @@ function shapedEvent(event: WireEventParsed, client: Client, receivedAt: Date, o
 }
 
 /** What a page's request carries beyond its events: the day's visitor and a coarse idea of their browser. The address stops here. */
-function clientOf(request: IncomingRequest, siteId: string, ports: CollectorPorts, day: string): Client {
+function clientOf(request: IncomingRequest, siteId: string, ports: CollectorPorts, day: string, anonymous: boolean): Client {
   const { address, country } = visitorOrigin(request, siteId, ports.secret);
   const userAgent = request.userAgent as string;
   const valid = country && /^[A-Z]{2}$/.test(country) ? country : null;
-  return { visitor: visitorOf({ secret: ports.secret, siteId, day, address, userAgent }), country: valid, ...coarseClient(userAgent) };
+  return { visitor: visitorOf({ secret: ports.secret, siteId, day, address: anonymous ? shortenedAddress(address) : address, userAgent }), country: valid, ...coarseClient(userAgent) };
 }
 
 const withinLimits = (ports: CollectorPorts, siteId: string, visitor: string | null, now: number) => ports.limits.sites.take(siteId, now) && (visitor === null || ports.limits.visitors.take(visitor, now));
@@ -132,13 +133,19 @@ export async function collect(ports: CollectorPorts, request: IncomingRequest): 
   const allowOrigin = request.origin;
   if (!server && (request.prefetch || isBot(request.userAgent))) return { status: 202, allowOrigin, accepted: 0 };
   const receivedAt = ports.now();
-  const client = server ? NO_CLIENT : clientOf(request, siteId, ports, dayOf(receivedAt));
+  // Nobody able to say what this site asked for: keep the least, since what's kept can't be taken back at the flush.
+  const anonymous = entry?.anonymous ?? true;
+  const client = server ? NO_CLIENT : clientOf(request, siteId, ports, dayOf(receivedAt), anonymous);
   if (!withinLimits(ports, siteId, client.visitor, receivedAt.getTime())) return refusal(429, { retryAfter: RETRY_AFTER_SECONDS, allowOrigin });
   const originHost = hostOf(request.origin);
-  const events = wireEventsOf(wire.events)
-    .filter(({ kind }) => !server || kind === "event")
-    .map((event) => shapedEvent(event, client, receivedAt, originHost));
-  if (events.length === 0) return refusal(400, { allowOrigin });
+  const understood = wireEventsOf(wire.events).filter(({ kind }) => !server || kind === "event");
+  if (understood.length === 0) return refusal(400, { allowOrigin });
+  const events = understood.filter(({ kind }) => !anonymous || kind !== "identify").map((event) => {
+    const shaped = shapedEvent(event, client, receivedAt, originHost);
+    return anonymous ? anonymised(shaped) : shaped;
+  });
+  // An identify refused is answered like a bot: nothing here tells a page it was dropped, and nothing shows in its console.
+  if (events.length === 0) return { status: 202, allowOrigin, accepted: 0 };
   try {
     await ports.buffer.append({ id: crypto.randomUUID(), siteId, key: wire.key, originHost, verified: Boolean(entry), events });
     return { status: 202, allowOrigin, accepted: events.length };

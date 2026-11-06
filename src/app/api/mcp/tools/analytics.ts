@@ -99,11 +99,11 @@ export const readingTools: ToolRegistrar = (server, context) => {
     "list_sites",
     {
       title: "The sites",
-      description: "The sites this workspace measures, with their ids, domains, when events last reached the database, and a link to each one’s page.",
+      description: "The sites this workspace measures, with their ids, domains, whether anonymous mode is on, when events last reached the database, and a link to each one’s page.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true },
     },
-    async () => answer({ sites: (await sitesOf(services.db, workspaceId)).map(({ id, name, allowedDomains, retentionDays, lastWrittenAt }) => ({ id, name, domains: allowedDomains, retentionDays, lastWrittenAt, url: appUrl(context, `/overview?site=${id}`) })) }),
+    async () => answer({ sites: (await sitesOf(services.db, workspaceId)).map(({ id, name, allowedDomains, anonymous, retentionDays, lastWrittenAt }) => ({ id, name, domains: allowedDomains, anonymous, retentionDays, lastWrittenAt, url: appUrl(context, `/overview?site=${id}`) })) }),
   );
 
   siteReadingTools(server, context);
