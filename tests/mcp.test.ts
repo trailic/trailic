@@ -43,7 +43,8 @@ function clientFor(workspaceId: string, userId: string) {
 type Call = ReturnType<typeof clientFor>;
 const callTool = (call: Call, name: string, args: Record<string, unknown> = {}) => call("tools/call", { name, arguments: args });
 
-const EXPECTED_TOOLS = ["create_site", "list_events", "list_sites", "list_workspaces", "run_funnel", "run_retention", "site_overview", "top_pages"];
+const EXPECTED_TOOLS = ["create_api_key", "create_site", "list_api_keys", "list_events", "list_sites", "list_workspaces", "revoke_api_key", "run_funnel", "run_retention", "site_overview", "top_pages"];
+const CHANGING_TOOLS = ["create_api_key", "create_site", "revoke_api_key"];
 
 const at = (day: string) => `${day}T10:00:00.000Z`;
 
@@ -68,16 +69,16 @@ describe("the tools", () => {
     expect(tools.map(({ name }: { name: string }) => name).sort()).toEqual(EXPECTED_TOOLS);
   });
 
-  it("all only read, and say so, apart from the one that adds a site", async () => {
+  it("all only read, and say so, apart from the one that adds a site and the two that make and end a key", async () => {
     const { call } = await seat();
     const { tools } = await call("tools/list");
-    for (const { name, annotations } of tools) expect(annotations.readOnlyHint, name).toBe(name !== "create_site");
+    for (const { name, annotations } of tools) expect(annotations.readOnlyHint, name).toBe(!CHANGING_TOOLS.includes(name));
   });
 
-  it("offer nothing that changes a site, erases someone, makes a key or touches members", async () => {
+  it("offer nothing that changes a site, erases someone or touches members", async () => {
     const { call } = await seat();
     const { tools } = await call("tools/list");
-    for (const { name } of tools.filter((tool: { name: string }) => tool.name !== "create_site")) expect(name).not.toMatch(/create|delete|erase|update|invit|member|team|role|key|set_/i);
+    for (const { name } of tools.filter((tool: { name: string }) => !CHANGING_TOOLS.includes(tool.name) && tool.name !== "list_api_keys")) expect(name).not.toMatch(/create|delete|erase|update|invit|member|team|role|key|set_/i);
   });
 
   it("say what browsers sent is data, wherever they return it, and so does the server", async () => {

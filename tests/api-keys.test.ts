@@ -48,7 +48,7 @@ describe("an API key", () => {
     const { userId: mate } = await createTestWorkspace(db, "Mate's own");
     await db.insert(member).values({ workspaceId, userId: mate, role: "member" });
     expect(await createApiKey(db, workspaceId, mate, "Mine", ["figures:read"])).toMatchObject({ ok: false });
-    expect(await revokeApiKey(db, workspaceId, mate, crypto.randomUUID())).toBe(false);
+    expect(await revokeApiKey(db, workspaceId, mate, crypto.randomUUID())).toMatchObject({ ok: false });
   });
 
   it("says which workspace it opens, and notes that it was used", async () => {
@@ -65,9 +65,9 @@ describe("an API key", () => {
 
   it("stops working when it's revoked", async () => {
     const { workspaceId, userId, key, keyId } = await seat();
-    expect(await revokeApiKey(db, workspaceId, userId, keyId)).toBe(true);
+    expect(await revokeApiKey(db, workspaceId, userId, keyId)).toMatchObject({ ok: true });
     expect(await accessOfKey(db, key, "figures:read")).toEqual({ status: "unknown" });
-    expect(await revokeApiKey(db, workspaceId, userId, keyId)).toBe(false);
+    expect(await revokeApiKey(db, workspaceId, userId, keyId)).toMatchObject({ ok: false });
   });
 
   it("is read from the Authorization header", () => {

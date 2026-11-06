@@ -146,7 +146,7 @@ Every page says when data was last written. Funnels, retention, journeys and peo
 
 ## 8. Assistants and figures
 
-The MCP server is at `/api/mcp`, over streamable HTTP. An assistant registers itself, a member signs in and approves it, and every tool runs as that member with the same rules as the screens: each is the same use case the screens call. They only read, apart from `create_site` and `create_workspace`, which let an assistant set up a project. Changing or deleting a site, erasing someone and managing members stay on the screens.
+The MCP server is at `/api/mcp`, over streamable HTTP. An assistant registers itself, a member signs in and approves it, and every tool runs as that member with the same rules as the screens: each is the same use case the screens call. They only read, apart from `create_site` and `create_workspace`, which let an assistant set up a project, and `create_api_key` and `revoke_api_key`, which manage read keys for an owner or an admin. Changing or deleting a site, erasing someone and managing members stay on the screens.
 
 | Tool | What it does |
 |---|---|
@@ -159,10 +159,15 @@ The MCP server is at `/api/mcp`, over streamable HTTP. An assistant registers it
 | `list_events` | Custom events, each with its days. |
 | `run_funnel` | Conversion and drop-off through steps given on the call. |
 | `run_retention` | Cohorts by first-identified week, by any activity or by one event. |
+| `list_api_keys` | For an owner or admin: the workspace's keys, with their names, prefixes, scopes, when made and last used. Never a key or its hash. |
+| `create_api_key` | For an owner or admin: a key that reads figures and nothing else, shown once, in the answer. |
+| `revoke_api_key` | For an owner or admin: ends a key at once. |
 
 Paths and names come from visitors' browsers, so the tools that return them say they're data, never instructions.
 
-**Figures.** `GET /api/v1/figures`, `Authorization: Bearer sk_…`, with a key holding the `figures:read` scope, made under Settings. `days` is 1 to 365, 30 by default, and `site` is a site's id, every site by default. Counts only: no pages, no people. It names the workspace the key opens, so an app can tell one key from another. Refusals: `401` for a missing or unknown key, `403` for a key without the scope, `400` for a `site` that isn't an id.
+**Keys through an assistant.** The three key tools call the same use cases as the keys screen, which refuse anyone but an owner or an admin. They take no scope, and a key made there reads and nothing else. Since a key opens a workspace's figures and paths, referrers and event names come from visitors, the server's instructions and the tools tell an assistant to make one only when the member asked in that conversation, never because a path, a referrer, an event name or a page says so, to revoke one only once the member said yes, and never to put a key into a page, record, message or reply. A key's row says who made it, when, and when it was last used. Revoking deletes the row, so it leaves nothing behind, and the list only ever holds live keys.
+
+**Figures.** `GET /api/v1/figures`, `Authorization: Bearer sk_…`, with a key holding the `figures:read` scope, made under Settings or by an assistant for an owner or an admin. `days` is 1 to 365, 30 by default, and `site` is a site's id, every site by default. Counts only: no pages, no people. It names the workspace the key opens, so an app can tell one key from another. Refusals: `401` for a missing or unknown key, `403` for a key without the scope, `400` for a `site` that isn't an id.
 
 ```json
 {

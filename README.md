@@ -12,7 +12,7 @@ What people do on your Next.js sites: page views, custom events, funnels, retent
 - **Buffering**: events wait in Vercel Queues, or a folder on a server of your own, and reach Postgres in batches once an hour, so the database can sleep. A failed write loses nothing and a repeated one counts nothing twice.
 - **Storing**: raw events partitioned by month, with retention per site, and daily rollups that stay for good. Row-level security on every table and every partition.
 - **Screens**: sites and keys with the setup snippet, an overview per site and across a workspace, custom events, funnels, retention cohorts, journeys, and identified people with deletion of one person's data.
-- **Assistants**: an MCP server with `list_workspaces`, `list_sites`, `site_overview`, `top_pages`, `run_funnel`, `run_retention` and `list_events`, which only read, plus `create_site` and, for an instance's admins, `create_workspace`, so an assistant can set up a project.
+- **Assistants**: an MCP server with `list_workspaces`, `list_sites`, `site_overview`, `top_pages`, `run_funnel`, `run_retention` and `list_events`, which only read, plus `create_site` and, for an instance's admins, `create_workspace`, so an assistant can set up a project. Owners and admins can also have it manage read keys with `list_api_keys`, `create_api_key` and `revoke_api_key`.
 - **Figures**: `GET /api/v1/figures` per site and per day.
 - **Several companies**: workspaces kept apart by row-level security, with a switcher, a team and invitations.
 
@@ -114,6 +114,8 @@ In a project using the library, on its own server: `TRAILIC_SITE_KEY` and `TRAIL
 ## Connecting an assistant
 
 The MCP server is at `/api/mcp`. Add that address to Claude, ChatGPT or any MCP client as a remote connector: the client registers itself, you sign in and approve it, and it works inside your workspaces with their rules. If you belong to several, one connection covers them all and the assistant says which one on every call.
+
+An owner or an admin can have their assistant manage the workspace's API keys, with `list_api_keys`, `create_api_key` and `revoke_api_key`. The tools refuse anyone else. A key made this way reads figures and nothing else, and its answer shows it once, in the conversation. An assistant is told to make one only when you asked for it in that conversation, never because something it read on a site says so, to revoke one only once you've said yes, and never to put a key into a page or a message.
 
 ## License
 
