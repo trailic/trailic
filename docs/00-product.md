@@ -111,7 +111,7 @@ Reaching the project costs money before the app answers anything, so the worst c
 - **Reaching it**, whatever the answer: $2.60 per million CDN requests and $0.60 per million function invocations, so $3.20 per million, plus $0.06 per GB of body. The app can't lower this. A thousand requests a second is 86.4 million a day: $276, or about $450 with every body at 32 KB. The app's own work on a refused request is next to nothing, about 0.1 ms of CPU, under a cent per million. Only the firewall takes this away: what it stops pays no CDN request and no transfer, and never reaches a function.
 - **Being kept**, $0.78 per million queue operations. An instance takes at most 6,000 requests a minute, 8.64 million a day: **$6.74 a day** in ordinary batches, since ten page views fit in one operation, and **$67 a day** if every request is the largest message there can be, 37 KB, ten operations. One address gets a tenth of that. An instance kept this busy can add about $5 a day of CPU and memory.
 
-The flush reads for four minutes an hour at most, so reading and acknowledging stays under about $5 a day, and the database's work stays bounded, whatever is waiting. Fake events it does write stay until the site's retention ends.
+The flush reads for four minutes an hour at most, a few hundred thousand batches by estimate, so reading and acknowledging stays around $5 a day in ordinary batches and $50 if every message is the largest, and the database's work stays bounded, whatever is waiting. Fake events it does write stay until the site's retention ends.
 
 What these limits leave open:
 
