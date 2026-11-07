@@ -8,7 +8,7 @@ What people do on your Next.js sites: page views, custom events, funnels, retent
 
 - **The library** (`packages/trailic`): `<Trailic siteKey endpoint />` for the App Router counts page views and route changes. `track`, `identify`, `reset`, `setConsent`, `optOut` and a server-side `trackServer`. No dependency beyond React, about 1.5 KB gzipped, and no effect on rendering if the collector is down.
 - **Privacy by default**: no cookies, and nothing in storage before `identify` or a visitor objecting. Anonymous mode, per site and on by default, shortens the address before hashing it, keeps no UTM tags, refuses `identify` and never counts sign-in, account, admin or profile areas. Anonymous visitors are counted by a daily-rotating salted hash of address and browser, computed server-side, and the address is never stored. Query strings are dropped except `utm_*`, and emails and long tokens are taken out of paths.
-- **Collecting**: `POST /api/e` with a public site key, checks on the site's domains, payload limits, rate limits and a bot filter. An event never touches the database: at most, a directory of sites is read once a day to refresh a cache.
+- **Collecting**: `POST /api/e` with a public site key, checks on the site's domains, payload limits, rate limits per sender, site and visitor and for the whole instance, and a bot filter. An event never touches the database: at most, a directory of sites is read once a day to refresh a cache.
 - **Buffering**: events wait in Vercel Queues, or a folder on a server of your own, and reach Postgres in batches once an hour, so the database can sleep. A failed write loses nothing and a repeated one counts nothing twice.
 - **Storing**: raw events partitioned by month, with retention per site, and daily rollups that stay for good. Row-level security on every table and every partition.
 - **Screens**: sites and keys with the setup snippet, an overview per site and across a workspace, custom events, funnels, retention cohorts, journeys, and identified people with deletion of one person's data.
@@ -77,7 +77,7 @@ Checks before committing: `pnpm lint && pnpm typecheck && pnpm test:coverage && 
 
 It's a Next.js 16 app and a Postgres database. `vercel.json` deploys it on Vercel with its functions in Frankfurt (`fra1`); anywhere that runs Node works too. Apply migrations with `pnpm db:migrate` before starting a new version.
 
-On Vercel, nothing else is needed for the buffer: Vercel Queues is on every plan, in beta, and authenticates by the deployment's own token. Vercel's Hobby plan refuses to deploy a cron job that runs more than once a day, so the hourly flush in `vercel.json` needs Pro. The rate limit in the app counts per server instance; for a hard limit against a flood, add a rule in Vercel's firewall.
+On Vercel, nothing else is needed for the buffer: Vercel Queues is on every plan, in beta, and authenticates by the deployment's own token. Vercel's Hobby plan refuses to deploy a cron job that runs more than once a day, so the hourly flush in `vercel.json` needs Pro. The app's rate limits count per server instance and can't lower what a request costs before it gets there, so before going public, add a rule in Vercel's firewall and turn on Spend Management: [the worst case and the exact steps](docs/00-product.md#what-a-flood-can-cost).
 
 Elsewhere than Vercel:
 

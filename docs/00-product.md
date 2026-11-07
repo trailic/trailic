@@ -48,6 +48,8 @@ All days are UTC.
 
 What follows from this: a visitor is one per site per day, so a period's visitors add its days up. Across sites, a workspace's visitors add its sites up. Only identified people can be followed from one day to the next. Retention counts only them, and someone anonymous can only convert in a funnel within a day.
 
+**The hash a sender is counted by.** To count requests from one address across all sites, the collector keeps a second hash in memory: the address, or an IPv6 address's /64, under a key of its own derived from `TRAILIC_SECRET`. It shares nothing with the hash above, it stays in one server instance's memory until the next request after its minute, and it's never stored, sent or logged.
+
 **Anonymous mode.** A setting per site, on unless someone who manages the workspace's settings turns it off on the site's page. On, the collector shortens the address before hashing it (IPv4 to /24, IPv6 to /48), keeps no UTM tags, and refuses `identify`, dropping any user id or traits sent with an event. It never counts anything in a sign-in, account, admin or profile area: a path that starts, after any locale, with `/login`, `/signin`, `/sign-in`, `/signup`, `/sign-up`, `/register`, `/logout`, `/auth`, `/reset-password`, `/forgot-password`, `/admin`, `/account`, `/dashboard`, `/settings`, `/u`, `/user`, `/users`, `/profile`, `/profil`, `/me`, `/onboarding`, `/favorites` or `/portal`, matched on whole segments, so `/admin-tools-guide` and `/universities` still count. The list is `PERSONAL_AREAS` in `src/domain/anonymous.ts`. An app kept under some other path can't be told apart, so such a site should leave that part out itself. So more people count as one visitor, campaigns can't be measured, and funnels and retention that follow someone across days have nobody to follow. Off, for a site that needs those and has dealt with what that asks of it, the whole address goes into the hash and everything else below applies. When the collector can't tell which a site asked for, it assumes on, since what it keeps can't be taken back later. A change reaches the collector within a minute and rewrites nothing already collected. Figures are exact counts in both states, with no rounding: a known gap, since a page with very few visits can be told apart. This setting decides what's collected, and it says nothing about what law applies.
 
 **Identifying.** Only with anonymous mode off. What a visitor did in the half hour before `identify` becomes theirs, on the same hash, so a funnel that starts anonymous and ends signed in stays one person's. Two people behind one address with the same browser can be mixed up in that half hour. That's as far as a hash should be trusted, which is why it's no longer than that.
@@ -76,13 +78,81 @@ An event never touches the database: the one read here is the directory of sites
 
 - **Size.** 32 KB and 20 events at most: `413` or `400`. One bad event is dropped without losing the rest.
 - **The key.** It's signed by the instance and says which site it's for, so a forged one gets `404` for free.
+- **The sender and the instance.** 600 requests a minute from one address across every site, a whole IPv6 /64 counting as one, and 6,000 a minute for everything an instance takes, each counted in that instance's memory: `429` with `Retry-After`, and nothing below this line runs. A relay's visitors count as themselves once its key proves it speaks for them. A request with no address to go by counts towards the instance only.
 - **The site.** Its domains come from a directory of every site, kept in the platform's cache, one read a day and cleared when any site changes, and in a server instance's memory for a minute. If the directory can't be read in 1.5 seconds, the events are kept anyway and the flush checks them.
 - **The origin.** A browser must come from an allowed domain or a subdomain of one: otherwise `403`. CORS answers only those, and a client posting JSON rather than plain text, which costs a preflight with no body to read, names its key in the address as well: `/api/e?key=site_…`. A server sends `server: true`, and no browser can: it has no origin to check, only custom events are taken, and no visitor is counted.
 - **Bots.** Known crawlers, headless browsers, monitors, and anything with no user agent or fetching ahead of time get an ordinary `202` and nothing is kept.
-- **Limits.** 120 requests a minute per visitor and 6,000 per site, counted in each server instance's memory: `429` with `Retry-After`. It stops a loop or a noisy client. A real flood is for the platform's firewall.
+- **Limits.** 120 requests a minute per visitor and 3,000 per site, half of what an instance takes so that a flood aimed at one site leaves the others room, counted in each server instance's memory: `429` with `Retry-After`. Only what passes these uses up the instance's 6,000.
 - **The buffer.** Only what the buffer has kept is answered `202`. If it can't, `503`.
 
 Site keys are public, so anyone can send fake events to a site, as with any analytics of this kind. Domains and limits make it harder, not impossible.
+
+**A refused event is lost.** Nothing retries it, and all that's left is one line a minute per instance with the number each limit refused: no address, hash, key or site. So the limits sit where real traffic can't reach them. One real instance, measured at about 300,000 page views a month, averages 7 requests a minute across all its sites, and has reached 39 in its busiest minute so far. That's 15 times under one sender's limit even if every visitor of every site shared one address, as people behind an office's or a mobile carrier's address partly do, and 150 times under the instance's.
+
+### What a flood can cost
+
+Prices are Vercel's public ones for `fra1`, in November 2026. What a request costs, by how far it gets:
+
+| Where it stops | Answer | Queue operations | Database |
+|---|---|---|---|
+| Over 32 KB, not JSON, over 20 events | `413`, `400` | none | none |
+| A forged key | `404` | none | none |
+| Over the sender's or the instance's limit | `429` | none | none, nor a look at the directory |
+| A real key that was replaced | `404` | none | none: a read of the platform's cache |
+| An origin that isn't the site's | `403` | none | none |
+| A known bot | `202` | none | none |
+| Over the site's or the visitor's limit | `429` | none | none |
+| Kept | `202` | one send per 4 KiB | none until the flush |
+
+Origins and bots stop browsers and honest clients. A script writes any `Origin` and `User-Agent` it likes, or says `server: true` and needs no origin at all, and keys are in every page. So what bounds the queue is the limits.
+
+Reaching the project costs money before the app answers anything, so the worst case comes in two parts:
+
+- **Reaching it**, whatever the answer: $2.60 per million CDN requests and $0.60 per million function invocations, so $3.20 per million, plus $0.06 per GB of body. The app can't lower this. A thousand requests a second is 86.4 million a day: $276, or about $450 with every body at 32 KB. The app's own work on a refused request is next to nothing, about 0.1 ms of CPU, under a cent per million. Only the firewall takes this away: what it stops pays no CDN request and no transfer, and never reaches a function.
+- **Being kept**, $0.78 per million queue operations. An instance takes at most 6,000 requests a minute, 8.64 million a day: **$6.74 a day** in ordinary batches, since ten page views fit in one operation, and **$67 a day** if every request is the largest message there can be, 37 KB, ten operations. One address gets a tenth of that. An instance kept this busy can add about $5 a day of CPU and memory.
+
+The flush reads for four minutes an hour at most, so reading and acknowledging stays under about $5 a day, and the database's work stays bounded, whatever is waiting. Fake events it does write stay until the site's retention ends.
+
+What these limits leave open:
+
+- **They count per instance.** Windows live in memory, as they must for an event not to touch a database, so the figures above multiply by however many instances the platform runs, which a big enough flood raises. A new instance starts with empty windows, and a fixed window lets twice the limit through across the turn of a minute.
+- **Many addresses.** A botnet stays under each sender's limit and is only stopped by the instance's, and it can use up that allowance so that real visitors' events are refused until the next minute.
+- **Size isn't counted.** A request counts as one however large its message.
+- **A long flood outruns the flush**, which then runs behind by what it can't read in an hour. Messages live seven days, so real events waiting behind fake ones can be lost after that.
+- **A relay's key.** Whoever holds it can name any visitor address, so only the site's and the instance's limits apply to them. It stays on the server: if it leaks, replace it.
+- **Fake events under the limits.** One address can still put 600 requests a minute into a site's figures. The limits cap the bill, not the truth of what's counted.
+- **Off Vercel**, a sender is only as real as the proxy in front. Vercel overwrites `X-Forwarded-For`. Without a proxy that does the same, anyone can claim any address, and only the instance's limit holds.
+
+### The outer limits
+
+The app's limits protect the queue. These two protect the bill, and an instance on Vercel should have both before it's public.
+
+**A firewall rule**, which stops one address before it costs anything, in every instance at once:
+
+1. In the project, open **Firewall**, then **Configure**, then **+ New Rule**.
+2. Name it `Collector flood`. Under **If**, choose **Request Path**, **Equals**, `/api/e`.
+3. Under **Then**, choose **Rate Limit**, with **Fixed Window**, a **Time Window** of `60` seconds, a **Request Limit** of `600` and the **IP** key. Leave the action on **Default (429)**.
+4. Choose **Save Rule**, then **Review Changes**, then **Publish**.
+
+Or, with the CLI:
+
+```bash
+vercel firewall rules add "Collector flood" --project <project> --condition '{"type":"path","op":"eq","value":"/api/e"}' --action rate_limit --rate-limit-algo fixed_window --rate-limit-window 60 --rate-limit-requests 600 --rate-limit-keys ip
+vercel firewall diff --project <project>
+vercel firewall publish --project <project>
+```
+
+What it stops is free. What it allows costs $0.65 per million requests, about 20 cents a month at 300,000 page views. Unlike the app, it can't tell a relay's visitors apart: if your sites relay and one of them sends more than 10 requests a second, raise the limit for all rather than exempting a header, which anyone could send. Leave `/api/e` out of **Attack Mode** and **Bot Protection**, or keep them off: a page's beacon can't answer a challenge, so every event would be lost.
+
+**Spend Management**, for what comes from many addresses, which no rule can stop. It's on Pro, for the whole team, and it's the only limit that holds whatever the app and the flood do:
+
+1. In the team, open **Settings**, then **Billing**, then **Spend Management**, and turn it on. You need the Owner or Billing role.
+2. Set the **On-Demand Budget** in dollars, per billing cycle, above an ordinary month.
+3. Turn on **Pause Production Deployments** if you'd rather stop than pay, and add a webhook if you'd like to be told at 50%, 75% and 100%. Add your phone under **My Notifications** to get a text at 100%.
+
+Or `vercel budgets set --amount <dollars> --pause --webhook <address>`, which CLI 65.11 and later call `vercel billing budgets`.
+
+Vercel checks every few minutes, so a flood runs on for a few minutes past the amount. And pausing stops the production deployment of **every project in the team**, until each is resumed by hand. On a team that also hosts sites you can't lose, a flood on the collector takes them down with it. If that matters more than the bill, give the collector a team and a budget of its own, or have the webhook pause only the collector, with `POST /v1/projects/{id}/pause`. Sites keep working while their collector is paused: they lose those events, nothing else.
 
 ## 5. Buffering
 

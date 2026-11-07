@@ -230,7 +230,7 @@ describe("limits", () => {
 
   it("limits a site from everywhere", async () => {
     const { RateWindow } = await import("@/domain/rate-window");
-    const { all } = ports({ limits: { visitors: new RateWindow(100), sites: new RateWindow(2) } });
+    const { all } = ports({ limits: { ...newLimits(), visitors: new RateWindow(100), sites: new RateWindow(2) } });
     const from = (address: string) => collect(all, request([PAGE], { address }));
     expect((await from("203.0.113.1")).status).toBe(202);
     expect((await from("203.0.113.2")).status).toBe(202);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collect, newLimits, type CollectorPorts, type IncomingRequest } from "@/application/collect";
 import type { DirectoryEntry } from "@/application/sites";
+import { senderNetwork } from "@/domain/addresses";
 import { isPersonalArea, PERSONAL_AREAS, shortenedAddress } from "@/domain/anonymous";
 import type { BufferedBatch } from "@/domain/collected";
 import { mintSiteKey, relayKeyOf } from "@/infrastructure/crypto/site-key";
@@ -168,5 +169,23 @@ describe("a shortened address", () => {
     ["not an address", ""],
   ])("%s becomes %s", (address, shortened) => {
     expect(shortenedAddress(address)).toBe(shortened);
+  });
+});
+
+describe("the network a sender is counted as", () => {
+  it.each([
+    ["203.0.113.7", "203.0.113.7"],
+    [" 203.0.113.7 ", "203.0.113.7"],
+    ["::ffff:203.0.113.7", "203.0.113.7"],
+    ["2001:db8:1:2:3:4:5:6", "2001:db8:1:2::"],
+    ["2001:0DB8:0001:ffff::9", "2001:db8:1:ffff::"],
+    ["2001:db8::1", "2001:db8:0:0::"],
+    ["1:2::3:4:5:6:7", "1:2:0:3::"],
+    ["::1", "0:0:0:0::"],
+    ["fe80::1%en0", "fe80:0:0:0::"],
+    ["", ""],
+    ["not an address", ""],
+  ])("%s is %s", (address, network) => {
+    expect(senderNetwork(address)).toBe(network);
   });
 });

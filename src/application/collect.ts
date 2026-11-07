@@ -1,30 +1,53 @@
+import { senderNetwork } from "@/domain/addresses";
 import { isPersonalArea, shortenedAddress } from "@/domain/anonymous";
 import { anonymised, dayOf, happenedAt, LARGEST_BODY_BYTES, pathAndCampaign, referrerHost, WIRE_BATCH, wireEventsOf, type CollectedEvent, type WireEventParsed } from "@/domain/collected";
-import { RateWindow } from "@/domain/rate-window";
+import { RateWindow, RefusalTally } from "@/domain/rate-window";
 import { hostAllowed, hostOf } from "@/domain/sites";
 import { coarseClient, isBot } from "@/domain/user-agent";
 import { relayKeyOf, siteIdOfKey } from "@/infrastructure/crypto/site-key";
 import { sameSecret } from "@/infrastructure/crypto/secrets";
+import { senderOf } from "@/infrastructure/crypto/sender-hash";
 import { visitorOf } from "@/infrastructure/crypto/visitor-hash";
 import type { EventBuffer } from "./event-buffer";
 import type { DirectoryEntry } from "./sites";
 
 /** One visitor's requests in a minute. A page sends a batch every few seconds at the very most. */
 export const REQUESTS_PER_VISITOR_MINUTE = 120;
-/** One site's requests in a minute, on one server instance: a hundred a second, more than this is built for. */
-export const REQUESTS_PER_SITE_MINUTE = 6_000;
+/**
+ * One address's requests in a minute, across every site, on one server instance: ten a second. Past
+ * what the people behind an office's or a carrier's address can send: one real instance's whole
+ * traffic, every visitor of every site, averages 7 a minute and has reached 39, and it would take five
+ * browsers each at their own limit to get here.
+ */
+export const REQUESTS_PER_SENDER_MINUTE = 600;
+/** One site's requests in a minute, on one server instance: half of what the instance takes, so a flood aimed at one site leaves the others room. */
+export const REQUESTS_PER_SITE_MINUTE = 3_000;
+/** Everything, on one server instance: a hundred a second, more than this is built for, and what keeps a flood from many addresses out of the queue. */
+export const REQUESTS_PER_INSTANCE_MINUTE = 6_000;
 const RETRY_AFTER_SECONDS = 60;
+const THE_INSTANCE = "instance";
+
+type LimitName = "sender" | "instance" | "site" | "visitor";
 
 export interface CollectorPorts {
   secret: string;
   buffer: EventBuffer;
   /** Every site, or null when that can't be known right now: the database is asleep and the cache is cold, say. */
   directory: (key?: string) => Promise<readonly DirectoryEntry[] | null>;
-  limits: { visitors: RateWindow; sites: RateWindow };
+  limits: { visitors: RateWindow; senders: RateWindow; sites: RateWindow; instance: RateWindow; refused: RefusalTally<LimitName> };
   now: () => Date;
 }
 
-export const newLimits = (): CollectorPorts["limits"] => ({ visitors: new RateWindow(REQUESTS_PER_VISITOR_MINUTE), sites: new RateWindow(REQUESTS_PER_SITE_MINUTE) });
+/** A refused event is lost, so its count is worth a line. Only the count: no address, hash, key or site. */
+const logRefused = (counts: Partial<Record<LimitName, number>>) => console.warn(`The collector refused requests in a minute, on this instance: ${JSON.stringify(counts)}`);
+
+export const newLimits = (): CollectorPorts["limits"] => ({
+  visitors: new RateWindow(REQUESTS_PER_VISITOR_MINUTE),
+  senders: new RateWindow(REQUESTS_PER_SENDER_MINUTE),
+  sites: new RateWindow(REQUESTS_PER_SITE_MINUTE),
+  instance: new RateWindow(REQUESTS_PER_INSTANCE_MINUTE),
+  refused: new RefusalTally(logRefused),
+});
 
 /** The request, reduced to what the collector reads. The route takes it off the headers; the address goes no further than the hash. */
 export interface IncomingRequest {
@@ -97,7 +120,31 @@ function clientOf(request: IncomingRequest, siteId: string, ports: CollectorPort
   return { visitor: visitorOf({ secret: ports.secret, siteId, day, address: anonymous ? shortenedAddress(address) : address, userAgent }), country: valid, ...coarseClient(userAgent) };
 }
 
-const withinLimits = (ports: CollectorPorts, siteId: string, visitor: string | null, now: number) => ports.limits.sites.take(siteId, now) && (visitor === null || ports.limits.visitors.take(visitor, now));
+/**
+ * The limits that need nothing but the request: what these turn away reaches neither the directory nor
+ * the buffer. A relay's visitors are counted as themselves, once its key proves it speaks for them. The
+ * instance's window is only looked at here, and counted just before the buffer, so that what is turned
+ * away in between leaves its allowance to everyone else.
+ */
+function limitBeforeAnything(ports: CollectorPorts, request: IncomingRequest, siteId: string, now: number): LimitName | null {
+  const { instance, senders } = ports.limits;
+  if (instance.full(THE_INSTANCE, now)) return "instance";
+  // Without an address, counting would make everyone one sender.
+  const network = senderNetwork(visitorOrigin(request, siteId, ports.secret).address);
+  return network && !senders.take(senderOf(ports.secret, network), now) ? "sender" : null;
+}
+
+function limitBeforeBuffer(ports: CollectorPorts, siteId: string, visitor: string | null, now: number): LimitName | null {
+  const { sites, visitors, instance } = ports.limits;
+  if (!sites.take(siteId, now)) return "site";
+  if (visitor !== null && !visitors.take(visitor, now)) return "visitor";
+  return instance.take(THE_INSTANCE, now) ? null : "instance";
+}
+
+function refusedByLimit(ports: CollectorPorts, limit: LimitName, now: number, allowOrigin: string | null): CollectAnswer {
+  ports.limits.refused.add(limit, now);
+  return refusal(429, { retryAfter: RETRY_AFTER_SECONDS, allowOrigin });
+}
 
 function parsedBody(body: string) {
   try {
@@ -117,9 +164,10 @@ function originRefusal(request: IncomingRequest, entry: DirectoryEntry | undefin
 
 /**
  * The whole way in, and an event never touches the database: the key is checked by its signature, the
- * site's domains come from a directory kept in the cache, read from the database about once a day,
- * and the events go to the buffer. Only what the buffer has kept is answered 202. Bots get an ordinary
- * answer, so nothing teaches them to look different.
+ * sender and the instance are checked in memory, the site's domains come from a directory kept in the
+ * cache, read from the database about once a day, and the events go to the buffer. Only what the
+ * buffer has kept is answered 202. Bots get an ordinary answer, so nothing teaches them to look
+ * different.
  */
 export async function collect(ports: CollectorPorts, request: IncomingRequest): Promise<CollectAnswer> {
   if (request.body.length > LARGEST_BODY_BYTES) return refusal(413);
@@ -127,6 +175,12 @@ export async function collect(ports: CollectorPorts, request: IncomingRequest): 
   if (!wire) return refusal(400);
   const siteId = siteIdOfKey(wire.key, ports.secret);
   if (!siteId) return refusal(404);
+  const receivedAt = ports.now();
+  const now = receivedAt.getTime();
+  ports.limits.refused.settle(now);
+  const early = limitBeforeAnything(ports, request, siteId, now);
+  // Nothing has said yet whether this origin may read the answer, so it isn't told.
+  if (early) return refusedByLimit(ports, early, now, null);
   const directory = await ports.directory(wire.key);
   const entry = directory?.find(({ key }) => key === wire.key);
   if (directory && !entry) return refusal(404);
@@ -135,11 +189,11 @@ export async function collect(ports: CollectorPorts, request: IncomingRequest): 
   if (refused) return refused;
   const allowOrigin = request.origin;
   if (!server && (request.prefetch || isBot(request.userAgent))) return { status: 202, allowOrigin, accepted: 0 };
-  const receivedAt = ports.now();
   // Nobody able to say what this site asked for: keep the least, since what's kept can't be taken back at the flush.
   const anonymous = entry?.anonymous ?? true;
   const client = server ? NO_CLIENT : clientOf(request, siteId, ports, dayOf(receivedAt), anonymous);
-  if (!withinLimits(ports, siteId, client.visitor, receivedAt.getTime())) return refusal(429, { retryAfter: RETRY_AFTER_SECONDS, allowOrigin });
+  const limit = limitBeforeBuffer(ports, siteId, client.visitor, now);
+  if (limit) return refusedByLimit(ports, limit, now, allowOrigin);
   const originHost = hostOf(request.origin);
   const understood = wireEventsOf(wire.events).filter(({ kind }) => !server || kind === "event");
   if (understood.length === 0) return refusal(400, { allowOrigin });

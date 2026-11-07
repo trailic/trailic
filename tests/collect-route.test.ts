@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPTIONS, POST } from "@/app/api/e/route";
+import { REQUESTS_PER_SENDER_MINUTE } from "@/application/collect";
 import type { DirectoryEntry } from "@/application/sites";
 import type { BufferedBatch } from "@/domain/collected";
 import { LARGEST_BODY_BYTES } from "@/domain/collected";
@@ -110,6 +111,30 @@ describe("OPTIONS /api/e", () => {
     expect((await preflight(null)).headers.get("access-control-allow-origin")).toBeNull();
     shared.secret = undefined;
     expect((await preflight(KEY)).headers.get("access-control-allow-origin")).toBeNull();
+  });
+});
+
+describe("a flood through the route", () => {
+  const FLOODER = "198.51.100.200";
+
+  afterEach(() => vi.useRealTimers());
+
+  it("stops one address spreading over every site at the sender's limit, and touches neither the queue nor the database after that", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2031-01-01T00:00:00.000Z") });
+    const sites = Array.from({ length: 163 }, (_, index) => {
+      const siteId = `11111111-2222-4333-8444-${String(index).padStart(12, "0")}`;
+      return { siteId, key: mintSiteKey(siteId, SECRET), allowedDomains: ["acme.example"], anonymous: false };
+    });
+    shared.directory = sites;
+    const onSite = (index: number) => post(JSON.stringify({ key: sites[index % sites.length].key, events: [{ kind: "page", path: "/" }] }), { "x-forwarded-for": FLOODER, "user-agent": `${FIREFOX} ${index}` });
+    const answers = [];
+    for (let index = 0; index < REQUESTS_PER_SENDER_MINUTE + 3; index += 1) answers.push(await onSite(index));
+    expect(kept()).toHaveLength(REQUESTS_PER_SENDER_MINUTE);
+    const refused = answers.at(-1) as Response;
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("60");
+    expect(refused.headers.get("access-control-allow-origin")).toBeNull();
+    expect((await post(JSON.stringify({ key: sites[0].key, events: [{ kind: "page", path: "/" }] }), { "x-forwarded-for": "198.51.100.201" })).status).toBe(202);
   });
 });
 
